@@ -185,7 +185,7 @@ Do these in this order. **Do not register an X developer account.**
 1. Create an app at developer.linkedin.com.
 2. Add the **"Share on LinkedIn"** product (self-serve — grants `w_member_social` with no review).
 3. Add **"Sign In with LinkedIn using OpenID Connect"** if member identity is needed. [UNVERIFIED whether strictly required for our flow — confirm in Module 14]
-4. Set the OAuth redirect URL to the Cloudflare Tunnel HTTPS callback (I will give you the exact path in Module 14).
+4. Set the OAuth redirect URL to the Vercel deployment HTTPS callback (I will give you the exact path in Module 14). The Cloudflare Tunnel approach was dropped — see §28.
 5. Hand me: Client ID, Client Secret.
 6. **Decide separately:** do you want to pursue Community Management API approval for company-page posting? It is free but needs a registered company + verified Page + two-tier review. If yes, start it now in parallel — it is the only long-lead item left, and it is optional.
 

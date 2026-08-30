@@ -193,12 +193,13 @@ Documentation updated
 
 ### Open questions for the owner
 
-1. **Where does the Next.js app ultimately run?** §28 lists Vercel free tier,
-   but the architecture is local Docker + Cloudflare Tunnel, and n8n calls
-   the app over that tunnel. Module 00 will be built host-agnostic so this
-   is not blocking, but it should be settled before Module 05 (Slack
-   interactivity) and Module 12 (OAuth redirect URLs), both of which need a
-   stable public callback URL.
+1. ~~Where does the Next.js app ultimately run?~~ **RESOLVED 2026-08-30** —
+   Vercel. Cloudflare Tunnel dropped; n8n makes outbound calls only. Slack
+   interactivity and OAuth redirects point at the Vercel deployment URL.
+   **However**, a licensing conflict is now open in its place: Vercel's
+   Hobby plan is non-commercial only, and this is a company internal tool.
+   See §28 "Deployment — unresolved plan/licensing conflict". Still not
+   blocking for Module 00, which stays host-agnostic.
 
 2. **Admin SDK credential format** — plan assumes three discrete env vars
    (`PROJECT_ID` / `CLIENT_EMAIL` / `PRIVATE_KEY`) rather than a JSON file

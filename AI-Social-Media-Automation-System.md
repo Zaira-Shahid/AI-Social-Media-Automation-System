@@ -1115,8 +1115,53 @@ GitHub
 ## Deployment
 
 ```text
-Vercel Hobby/free tier where suitable
+Vercel (Next.js application)
 ```
+
+The application is publicly hosted on Vercel. This removes the need to
+expose a local machine to the internet.
+
+Consequences for the architecture:
+
+- **No Cloudflare Tunnel.** The tunnel requirement is dropped entirely.
+  Nothing in the system needs to expose a local machine.
+- **n8n makes outbound calls only.** n8n runs in local Docker, is triggered
+  by its own cron, and calls the Vercel application's signed webhook
+  endpoints over the public internet. n8n itself is never publicly
+  reachable and requires no inbound networking.
+- **Slack interactivity** (§9) points at the Vercel deployment URL.
+- **OAuth redirect URLs** (Modules 12–14) point at the Vercel deployment
+  URL.
+
+Because n8n runs on a local machine, scheduled workflows only fire while
+that machine is running. This is accepted for the MVP; it is a property of
+local n8n, not of Vercel.
+
+## Deployment — unresolved plan/licensing conflict
+
+**Flagged, not resolved. Requires an owner decision.**
+
+Vercel's own documentation states that "the Hobby plan restricts users to
+non-commercial, personal use only." Vercel's fair use guidelines define
+commercial usage to include a project owned by a company, and code written
+by a paid employee or consultant.
+
+This system is defined in §2 as an internal tool for one company, which
+falls under that definition. Deploying it on the Hobby plan would therefore
+conflict with Vercel's terms, and policy violations can result in a paused
+deployment — which would stop the publishing pipeline.
+
+The three known options:
+
+1. **Vercel Pro** — compliant, but a paid plan, which §29 forbids.
+2. **Vercel Hobby** — free, but conflicts with the terms above.
+3. **Local hosting behind a Cloudflare Tunnel** — free and compliant, but
+   reintroduces the tunnel and depends on the local machine being up.
+
+Option 3 remains available as the free, terms-compliant fallback if the
+owner does not wish to resolve this in favour of options 1 or 2.
+
+This does not block Module 00, which is built host-agnostic.
 
 ---
 
