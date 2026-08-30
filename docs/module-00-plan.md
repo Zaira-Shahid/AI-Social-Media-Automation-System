@@ -169,7 +169,27 @@ module is considered complete.
 - A small structured logging utility with a redaction helper, so no token,
   key or secret can be logged (§55, §56).
 
-### 3.9 Git conventions
+### 3.9 Health-check endpoint (required by the Render keep-warm cron)
+
+Render free services spin down after 15 minutes idle, and a ~1 minute cold
+start would break Slack's 3-second interactivity deadline (§9). n8n runs a
+keep-warm cron every ~10 minutes against this endpoint, so it must exist
+from Module 00 — before anything depends on the app being reachable.
+
+Requirements:
+
+- Unauthenticated (it must work before any login exists) but revealing
+  nothing: no version strings, no config, no dependency status.
+- **Cheap.** No Firestore read, no Cloudinary call, no external request. Its
+  job is to keep the instance awake and confirm the process is alive.
+- Excluded from audit logs (§55) and from automation run counts (§41), or
+  ~4,300 pings per month will bury real activity.
+- Returns a plain `200`.
+
+A deeper readiness check that does touch dependencies may be added later as
+a **separate** authenticated endpoint. It must not be this one.
+
+### 3.10 Git conventions
 
 - Conventional Commits (§62).
 - Branch flow per §60: `feature/module-00-foundation` → `develop`.
@@ -194,16 +214,16 @@ Documentation updated
 ### Open questions for the owner
 
 1. ~~Where does the Next.js app ultimately run?~~ **RESOLVED 2026-08-30
-   (final)** — **local + Cloudflare Tunnel.** The app runs on the same
-   machine as the n8n Docker container; a free named Cloudflare Tunnel
-   supplies the public HTTPS URL for Slack interactivity and OAuth
-   redirects. Vercel was rejected: Hobby is non-commercial only and this is
-   a company internal tool, while Pro is paid. n8n stays outbound-only —
-   the tunnel exposes the app, not n8n.
+   (final)** — **Render free tier**, persistent `*.onrender.com` subdomain,
+   no credit card, no domain required. Vercel rejected (Hobby is explicitly
+   non-commercial; Pro is paid). Cloudflare Tunnel rejected (a named tunnel
+   needs a domain, and none is owned). n8n stays outbound-only.
 
-   One open sub-item: a **named** tunnel is required for a stable hostname,
-   which requires a domain on Cloudflare. See §28. Not blocking Module 00,
-   but needed before Modules 05 and 12.
+   Two carried items, neither blocking Module 00:
+   - Render's commercial-use ToS is **UNVERIFIED** — accepted risk, recorded
+     in §28. Should be read and the section updated.
+   - Free services spin down after 15 minutes idle. Module 00 must ship the
+     health-check endpoint that the n8n keep-warm cron will call (see 3.10).
 
 2. **Admin SDK credential format** — plan assumes three discrete env vars
    (`PROJECT_ID` / `CLIENT_EMAIL` / `PRIVATE_KEY`) rather than a JSON file

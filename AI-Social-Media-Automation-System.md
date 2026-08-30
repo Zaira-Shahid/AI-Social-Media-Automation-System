@@ -1115,75 +1115,114 @@ GitHub
 ## Deployment
 
 ```text
-Next.js application — self-hosted locally
-Cloudflare Tunnel — free, provides the public HTTPS URL
+Next.js application — Render (free tier)
+Persistent public URL — <service>.onrender.com
 ```
 
 **This is the final hosting decision.**
 
-The Next.js application runs on the same local machine as the n8n Docker
-container. A free Cloudflare Tunnel exposes the application publicly and
-supplies the stable HTTPS URL required by external services.
+The application is deployed to Render's free tier, which provides a
+persistent `*.onrender.com` subdomain. No credit card is required and no
+domain registration is needed, so the project remains zero-paid.
+
+The Cloudflare Tunnel is **not** used. Render supplies the public URL
+directly.
 
 Architecture:
 
 ```text
-Cron (n8n, local Docker)
-        ↓  outbound only
-Next.js app (local)
-        ↑  inbound via Cloudflare Tunnel
-Slack interactivity  /  OAuth redirects
+n8n (local Docker)
+   ├── daily cron        → outbound → Render app webhook
+   └── keep-warm cron    → outbound → Render app health check
+                                          ↑
+                    Slack interactivity / OAuth redirects (inbound)
 ```
 
-- **The tunnel exposes the application, never n8n.** n8n has no inbound
-  networking and is not publicly reachable.
 - **n8n remains outbound-only.** It is triggered by its own cron and calls
-  the application's signed webhook endpoints. This principle is unchanged.
-- **Slack interactivity** (§9) points at the tunnel URL.
-- **OAuth redirect URLs** (Modules 12–14) point at the tunnel URL.
+  the application's endpoints over the public internet. It never receives
+  inbound traffic and is never publicly reachable. This principle is
+  unchanged.
+- **Slack interactivity** (§9) points at the Render URL.
+- **OAuth redirect URLs** (Modules 12–14) point at the Render URL.
 
-### Why not Vercel
+### Accepted risk: Render's commercial-use terms are UNVERIFIED
 
-Recorded so this is not revisited. Vercel's documentation states that the
-Hobby plan "restricts users to non-commercial, personal use only," and its
-fair use guidelines count a company-owned project as commercial. §2 defines
-this system as an internal tool for one company, so Hobby does not apply.
-Vercel Pro is compliant but paid, which §29 forbids. Local hosting behind a
-Cloudflare Tunnel is the only option that is both free and compliant.
+Recorded honestly rather than assumed safe.
+
+Render's free tier documentation confirms no credit card is required, and
+no non-commercial restriction was found. However, **Render's Terms of
+Service were not successfully read during research**, so it is *not*
+confirmed that free-tier commercial use is permitted. "No restriction
+found" is weaker evidence than "explicitly permitted."
+
+This is an **accepted risk**, taken knowingly because Render is the only
+viable option that is free, requires no card, and provides a persistent
+public URL. It is not a verified-compliant position.
+
+Contrast with Vercel, which was rejected because its Hobby plan is
+*explicitly* documented as non-commercial personal use only (§2 defines
+this system as a company internal tool). Render carries an unknown, not a
+known conflict.
+
+**Follow-up required:** Render's Terms of Service should be read and this
+section updated to VERIFIED or re-decided. See
+`docs/hosting-and-domain-research.md`.
+
+### Keep-warm requirement
+
+Render free web services **spin down after 15 minutes of inactivity**, and
+cold start takes roughly one minute.
+
+Slack requires a response to an interactive action within **3 seconds**. A
+cold start would therefore cause the first Slack button press after an idle
+period to fail outright, breaking the §9 approval workflow.
+
+Mitigation:
+
+- The application exposes a lightweight **health-check endpoint**.
+- n8n runs a **keep-warm cron every ~10 minutes** that calls it.
+- The endpoint must be cheap: no database reads, no external calls, no
+  authentication side effects. It exists to keep the instance awake and to
+  report liveness.
+- Keep-warm pings must not be written to the audit log (§55) or counted as
+  automation runs (§41), or they will drown real activity.
+
+Budget: Render grants **750 instance hours per workspace per month**. A
+single service kept awake continuously consumes roughly 730 hours, which
+fits — but only for **one** service. Do not deploy a second free service
+in the same workspace without re-checking this budget.
 
 ### Availability
 
-Because both the application and n8n run on a local machine, the entire
-system is available only while that machine is running. The 10:00 AM daily
-workflow (§3) will not fire if the machine is off, and the application is
-unreachable during that time.
+The application stays up on Render as long as keep-warm pings keep
+arriving. However, **n8n runs in local Docker**, so:
 
-This is accepted for the MVP and must be stated honestly in operational
-documentation. It must never be presented in the UI as a system failure
-when it is simply a machine that was switched off.
+- The 10:00 AM daily workflow (§3) fires only while the local machine is
+  running.
+- The keep-warm ping also stops when that machine is off. After 15 minutes
+  the Render service spins down, and the next inbound request — a Slack
+  action or an OAuth callback — pays the cold-start penalty and may fail.
 
-### Requirement: the tunnel must be a *named* tunnel
+So the local machine's uptime still governs both the daily workflow and
+Slack responsiveness. This is accepted for the MVP.
 
-A stable public URL is not optional here. OAuth redirect URIs are
-registered with Meta and LinkedIn, and Slack's interactivity request URL is
-registered with Slack. If the public hostname changes, those integrations
-break until every registration is updated by hand.
+It must be stated honestly in operational documentation, and must never be
+presented in the UI as a system failure when it is simply a machine that
+was switched off.
 
-Cloudflare offers two tunnel types, and only one is suitable:
+### Why not Vercel, and why no custom domain
 
-- **Quick tunnels** (`*.trycloudflare.com`) require no account or domain,
-  but Cloudflare assigns a **random hostname that changes every time
-  `cloudflared` restarts**. This is unusable for registered OAuth and Slack
-  callbacks.
-- **Named tunnels** bind a persistent hostname that survives restarts, but
-  require a Cloudflare account and a **zone — that is, a domain the company
-  controls, added to Cloudflare**.
+Recorded so these are not revisited.
 
-**A named tunnel is therefore required, which means a domain is required.**
-Cloudflare's account, tunnel and DNS are free; domain registration itself
-is not. If the company already owns a domain, this costs nothing further.
-If it does not, this is the one remaining item that may carry a cost, and
-it must be raised with the owner under §29 rather than assumed.
+**Vercel** — its documentation states the Hobby plan "restricts users to
+non-commercial, personal use only," and its fair use guidelines count a
+company-owned project as commercial. Pro is compliant but paid, which §29
+forbids.
+
+**Cloudflare Tunnel** — a named tunnel gives a stable hostname but requires
+a domain the company controls. Quick tunnel hostnames change on every
+restart, which would break registered OAuth and Slack callbacks. No domain
+is owned, and buying one was declined to stay zero-paid.
 
 ---
 
