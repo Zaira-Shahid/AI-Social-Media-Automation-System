@@ -1115,53 +1115,75 @@ GitHub
 ## Deployment
 
 ```text
-Vercel (Next.js application)
+Next.js application — self-hosted locally
+Cloudflare Tunnel — free, provides the public HTTPS URL
 ```
 
-The application is publicly hosted on Vercel. This removes the need to
-expose a local machine to the internet.
+**This is the final hosting decision.**
 
-Consequences for the architecture:
+The Next.js application runs on the same local machine as the n8n Docker
+container. A free Cloudflare Tunnel exposes the application publicly and
+supplies the stable HTTPS URL required by external services.
 
-- **No Cloudflare Tunnel.** The tunnel requirement is dropped entirely.
-  Nothing in the system needs to expose a local machine.
-- **n8n makes outbound calls only.** n8n runs in local Docker, is triggered
-  by its own cron, and calls the Vercel application's signed webhook
-  endpoints over the public internet. n8n itself is never publicly
-  reachable and requires no inbound networking.
-- **Slack interactivity** (§9) points at the Vercel deployment URL.
-- **OAuth redirect URLs** (Modules 12–14) point at the Vercel deployment
-  URL.
+Architecture:
 
-Because n8n runs on a local machine, scheduled workflows only fire while
-that machine is running. This is accepted for the MVP; it is a property of
-local n8n, not of Vercel.
+```text
+Cron (n8n, local Docker)
+        ↓  outbound only
+Next.js app (local)
+        ↑  inbound via Cloudflare Tunnel
+Slack interactivity  /  OAuth redirects
+```
 
-## Deployment — unresolved plan/licensing conflict
+- **The tunnel exposes the application, never n8n.** n8n has no inbound
+  networking and is not publicly reachable.
+- **n8n remains outbound-only.** It is triggered by its own cron and calls
+  the application's signed webhook endpoints. This principle is unchanged.
+- **Slack interactivity** (§9) points at the tunnel URL.
+- **OAuth redirect URLs** (Modules 12–14) point at the tunnel URL.
 
-**Flagged, not resolved. Requires an owner decision.**
+### Why not Vercel
 
-Vercel's own documentation states that "the Hobby plan restricts users to
-non-commercial, personal use only." Vercel's fair use guidelines define
-commercial usage to include a project owned by a company, and code written
-by a paid employee or consultant.
+Recorded so this is not revisited. Vercel's documentation states that the
+Hobby plan "restricts users to non-commercial, personal use only," and its
+fair use guidelines count a company-owned project as commercial. §2 defines
+this system as an internal tool for one company, so Hobby does not apply.
+Vercel Pro is compliant but paid, which §29 forbids. Local hosting behind a
+Cloudflare Tunnel is the only option that is both free and compliant.
 
-This system is defined in §2 as an internal tool for one company, which
-falls under that definition. Deploying it on the Hobby plan would therefore
-conflict with Vercel's terms, and policy violations can result in a paused
-deployment — which would stop the publishing pipeline.
+### Availability
 
-The three known options:
+Because both the application and n8n run on a local machine, the entire
+system is available only while that machine is running. The 10:00 AM daily
+workflow (§3) will not fire if the machine is off, and the application is
+unreachable during that time.
 
-1. **Vercel Pro** — compliant, but a paid plan, which §29 forbids.
-2. **Vercel Hobby** — free, but conflicts with the terms above.
-3. **Local hosting behind a Cloudflare Tunnel** — free and compliant, but
-   reintroduces the tunnel and depends on the local machine being up.
+This is accepted for the MVP and must be stated honestly in operational
+documentation. It must never be presented in the UI as a system failure
+when it is simply a machine that was switched off.
 
-Option 3 remains available as the free, terms-compliant fallback if the
-owner does not wish to resolve this in favour of options 1 or 2.
+### Requirement: the tunnel must be a *named* tunnel
 
-This does not block Module 00, which is built host-agnostic.
+A stable public URL is not optional here. OAuth redirect URIs are
+registered with Meta and LinkedIn, and Slack's interactivity request URL is
+registered with Slack. If the public hostname changes, those integrations
+break until every registration is updated by hand.
+
+Cloudflare offers two tunnel types, and only one is suitable:
+
+- **Quick tunnels** (`*.trycloudflare.com`) require no account or domain,
+  but Cloudflare assigns a **random hostname that changes every time
+  `cloudflared` restarts**. This is unusable for registered OAuth and Slack
+  callbacks.
+- **Named tunnels** bind a persistent hostname that survives restarts, but
+  require a Cloudflare account and a **zone — that is, a domain the company
+  controls, added to Cloudflare**.
+
+**A named tunnel is therefore required, which means a domain is required.**
+Cloudflare's account, tunnel and DNS are free; domain registration itself
+is not. If the company already owns a domain, this costs nothing further.
+If it does not, this is the one remaining item that may carry a cost, and
+it must be raised with the owner under §29 rather than assumed.
 
 ---
 

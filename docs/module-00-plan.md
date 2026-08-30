@@ -193,13 +193,17 @@ Documentation updated
 
 ### Open questions for the owner
 
-1. ~~Where does the Next.js app ultimately run?~~ **RESOLVED 2026-08-30** —
-   Vercel. Cloudflare Tunnel dropped; n8n makes outbound calls only. Slack
-   interactivity and OAuth redirects point at the Vercel deployment URL.
-   **However**, a licensing conflict is now open in its place: Vercel's
-   Hobby plan is non-commercial only, and this is a company internal tool.
-   See §28 "Deployment — unresolved plan/licensing conflict". Still not
-   blocking for Module 00, which stays host-agnostic.
+1. ~~Where does the Next.js app ultimately run?~~ **RESOLVED 2026-08-30
+   (final)** — **local + Cloudflare Tunnel.** The app runs on the same
+   machine as the n8n Docker container; a free named Cloudflare Tunnel
+   supplies the public HTTPS URL for Slack interactivity and OAuth
+   redirects. Vercel was rejected: Hobby is non-commercial only and this is
+   a company internal tool, while Pro is paid. n8n stays outbound-only —
+   the tunnel exposes the app, not n8n.
+
+   One open sub-item: a **named** tunnel is required for a stable hostname,
+   which requires a domain on Cloudflare. See §28. Not blocking Module 00,
+   but needed before Modules 05 and 12.
 
 2. **Admin SDK credential format** — plan assumes three discrete env vars
    (`PROJECT_ID` / `CLIENT_EMAIL` / `PRIVATE_KEY`) rather than a JSON file
