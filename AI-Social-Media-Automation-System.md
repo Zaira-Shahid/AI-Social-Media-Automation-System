@@ -521,11 +521,39 @@ Static assets may include:
 - educational cards
 - carousel-style static images if technically practical
 
+## Image sourcing rule
+
+Generated posts must use **only** brand templates and Cloudinary-hosted
+branded assets owned by the company.
+
+A news article's own image must **never** be pulled into a generated post.
+Static cards are headline, text and branding only, rendered from our own
+templates.
+
+The `imageUrl` field captured during news normalization (§6) exists for
+reference and attribution in the internal UI only. It must never be passed
+into the static post generator or published.
+
+This is a legal requirement, not a stylistic preference. Republishing a
+publisher's image without a licence risks takedown and account termination
+on the company's own social accounts. It must be enforced as a validation
+rule in code, not merely documented.
+
 ---
 
 # 15. STATIC POST GENERATION
 
-The preferred implementation is template/programmatic generation using free tooling.
+Implementation: **SVG-based rendering via Satori (JSX/HTML + CSS → SVG),
+then resvg to rasterize SVG → PNG.**
+
+Headless Chromium (Puppeteer/Playwright rendering) must not be used for
+image generation. It is heavy, and unnecessary for static text-and-branding
+cards.
+
+Constraint to design to: Satori supports only a subset of CSS. Templates
+must be built within that subset from the start rather than designed freely
+and retrofitted. Fonts must be supplied explicitly as font data; there is
+no system font fallback.
 
 Concept:
 
@@ -697,6 +725,50 @@ The assistant must verify:
 Never invent any of these.
 
 If a capability is unavailable or requires additional approval, document it.
+
+## Token storage and lifecycle
+
+OAuth tokens must **never** be stored in plaintext.
+
+Storage:
+
+- Tokens are encrypted server-side with Node's `crypto` module using
+  symmetric encryption before being written to Firestore.
+- The encryption key is supplied through a server-only environment
+  variable. It is never committed, never sent to the client, never given
+  to n8n.
+- Use an authenticated encryption mode, so tampering is detectable rather
+  than silently decrypting to corrupt output.
+- Encryption and decryption happen only in server-side code holding Admin
+  SDK privileges. Firestore Security Rules must deny all client access to
+  the social account collection outright (§33) — encryption is a second
+  layer, not a substitute for rules.
+
+Per token, store:
+
+```text
+platform
+encrypted access token
+encrypted refresh token   (where the platform issues one)
+expiresAt                 timestamp
+lastRefreshedAt           timestamp
+status                    VALID | EXPIRING | EXPIRED | REVOKED
+```
+
+Lifecycle:
+
+- **Facebook / Instagram** — refresh automatically where the platform
+  supports it, before expiry.
+- **LinkedIn** — no refresh token is issued on the self-serve tier and
+  access tokens expire after 60 days. Automatic refresh is impossible.
+  Track `expiresAt` and send a Slack alert **5–7 days before expiry** so a
+  human can re-authorize in time.
+- An expired token must cause publishing to fail loudly and set the post
+  to FAILED with a clear reason (§52). It must never fail silently, and it
+  must never be reported as a successful publish (§67).
+- The Social Accounts screen (§42) must surface expiry state.
+
+Never log a token, encrypted or decrypted (§55).
 
 ---
 
@@ -1826,6 +1898,14 @@ Do not invent final variables before implementation.
 
 Every module requires appropriate tests.
 
+Stack:
+
+```text
+Vitest                  unit and integration tests
+Playwright              end-to-end tests
+Firebase Emulator Suite Firestore Security Rules tests
+```
+
 Use:
 
 ```text
@@ -1836,6 +1916,14 @@ Validation tests
 Permission tests
 Workflow tests
 ```
+
+Security Rules must be tested against the Firebase Emulator Suite, not
+against the live project. Rules tests must cover both allow and deny cases:
+a test proving an unauthorized role is denied is as important as one
+proving an authorized role is permitted.
+
+Tests must never call live social platform APIs. Provider adapters are
+exercised through mock mode (§21).
 
 Critical workflows should receive end-to-end testing where practical.
 
@@ -2115,12 +2203,14 @@ Build:
 
 Build:
 
-- template system
+- template system (Satori-compatible CSS subset only)
 - brand rendering
 - logo
-- typography
+- typography (explicit font data — no system font fallback)
 - colours
-- static image generation
+- static image generation via Satori → resvg → PNG
+- enforcement of the §14 image sourcing rule: brand templates and
+  company-owned Cloudinary assets only, never an article's own image
 - server-side signed upload to Cloudinary
 - storage of the returned public media URL (and Cloudinary public ID, so
   assets can later be deleted or replaced) on the platform post document
