@@ -1,5 +1,33 @@
 import { defineConfig } from "@playwright/test";
 
+/*
+ * Load `.env.local` into the test process.
+ *
+ * Next loads it for the app under test, but Playwright is a separate process
+ * and does not. A test that needs to sign a webhook the way n8n does needs
+ * the same secret the server verifies against, and without this it would sign
+ * with an empty string and fail for a reason that has nothing to do with the
+ * code under test.
+ *
+ * Emulator hosts are exported by `firebase emulators:exec` and must win over
+ * anything the file says, so they are restored afterwards.
+ */
+const emulatorEnv = {
+  FIREBASE_AUTH_EMULATOR_HOST: process.env.FIREBASE_AUTH_EMULATOR_HOST,
+  FIRESTORE_EMULATOR_HOST: process.env.FIRESTORE_EMULATOR_HOST,
+};
+
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Absent in CI, where the environment is provided directly.
+}
+
+for (const [key, value] of Object.entries(emulatorEnv)) {
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
+}
+
 /**
  * Two runs share this config:
  *

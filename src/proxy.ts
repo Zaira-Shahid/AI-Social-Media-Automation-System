@@ -37,11 +37,17 @@ export default function proxy(request: NextRequest) {
 
 export const config = {
   /*
-   * Everything except Next internals, static assets, and the health endpoint.
+   * Pages only. Next internals, static assets and the whole `/api` tree are
+   * excluded.
    *
-   * `/api/health` must stay reachable without a session: it is the n8n
-   * keep-warm target and runs before anyone logs in (§28). `/api/auth` is
-   * excluded because it is how a session is obtained in the first place.
+   * `/api` is excluded deliberately, not for convenience. This proxy answers
+   * a missing cookie with a redirect to an HTML login page, which is the
+   * wrong answer for any API client: `/api/health` is the n8n keep-warm
+   * target that runs before anyone logs in (§28), `/api/auth` is how a
+   * session is obtained in the first place, and `/api/webhooks/*` is called
+   * by n8n, which has no cookie and authenticates by signature instead (§44).
+   * An API route that needs a user checks for one itself and returns 401 —
+   * which §33 requires of server code regardless.
    */
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/health|api/auth).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/).*)"],
 };

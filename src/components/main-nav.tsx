@@ -29,14 +29,26 @@ import { cn } from "@/lib/utils";
  * link that bounces the user to /forbidden teaches them nothing except that
  * the app is broken.
  */
-const NAVIGATION: {
+interface NavItem {
   label: string;
   icon: typeof Home;
   href?: string;
   permission?: Permission;
-}[] = [
+  /**
+   * Sub-destinations. §34 fixes the top-level list, so anything that is not on
+   * it — source management, for one — hangs off the entry it belongs to rather
+   * than being invented as an eleventh top-level item.
+   */
+  children?: { label: string; href: string; permission?: Permission }[];
+}
+
+const NAVIGATION: NavItem[] = [
   { label: "Dashboard", icon: Home, href: "/" },
-  { label: "News", icon: Newspaper },
+  {
+    label: "News",
+    icon: Newspaper,
+    children: [{ label: "Sources", href: "/news/sources", permission: "sources:manage" }],
+  },
   { label: "Content", icon: FileText },
   { label: "Calendar", icon: CalendarDays },
   { label: "Analytics", icon: BarChart3 },
@@ -52,14 +64,22 @@ const BASE_ITEM = "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm";
 export function MainNav({ role }: { role: Role | null }) {
   const pathname = usePathname();
 
-  const visible = NAVIGATION.filter(
-    (item) => !item.permission || (role !== null && can(role, item.permission)),
-  );
+  const allowed = (permission?: Permission) =>
+    !permission || (role !== null && can(role, permission));
+
+  const visible = NAVIGATION.map((item) => ({
+    ...item,
+    children: item.children?.filter((child) => allowed(child.permission)) ?? [],
+  }))
+    // An entry with no route of its own and no reachable children is dropped
+    // entirely rather than left as a label that does nothing for this role.
+    .filter((item) => allowed(item.permission))
+    .filter((item) => item.href !== undefined || item.children.length > 0 || !item.permission);
 
   return (
     <nav aria-label="Main" className="flex-1">
       <ul className="space-y-1">
-        {visible.map(({ label, icon: Icon, href }) => {
+        {visible.map(({ label, icon: Icon, href, children }) => {
           const active = href !== undefined && pathname === href;
 
           return (
@@ -87,6 +107,31 @@ export function MainNav({ role }: { role: Role | null }) {
                   {label}
                 </span>
               )}
+
+              {children.length > 0 ? (
+                <ul className="mt-1 ml-6 space-y-1">
+                  {children.map((child) => {
+                    const childActive = pathname === child.href;
+
+                    return (
+                      <li key={child.href}>
+                        <Link
+                          href={child.href}
+                          aria-current={childActive ? "page" : undefined}
+                          className={cn(
+                            "block rounded-md px-2 py-1 text-sm",
+                            childActive
+                              ? "bg-muted font-medium text-foreground"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                          )}
+                        >
+                          {child.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
             </li>
           );
         })}
