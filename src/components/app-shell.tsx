@@ -11,6 +11,10 @@ import {
   Workflow,
 } from "lucide-react";
 
+import { SignOutButton } from "@/components/sign-out-button";
+import { roleLabel } from "@/lib/auth/roles";
+import type { SessionUser } from "@/lib/auth/session";
+
 /**
  * Navigation structure from spec §34.
  *
@@ -30,16 +34,16 @@ const NAVIGATION = [
   { label: "Settings", icon: Settings },
 ] as const;
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
-      <aside className="w-60 shrink-0 border-r border-border p-4">
+      <aside className="flex w-60 shrink-0 flex-col border-r border-border p-4">
         <div className="mb-6 px-2">
           <p className="text-sm font-semibold">AI Social Media</p>
           <p className="text-xs text-muted-foreground">Command Center</p>
         </div>
 
-        <nav aria-label="Main">
+        <nav aria-label="Main" className="flex-1">
           <ul className="space-y-1">
             {NAVIGATION.map(({ label, icon: Icon }) => (
               <li key={label}>
@@ -54,6 +58,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </ul>
         </nav>
+
+        <div className="mt-6 border-t border-border pt-4">
+          <div className="mb-2 px-2">
+            <p className="truncate text-xs font-medium" title={user.email ?? undefined}>
+              {user.email ?? user.uid}
+            </p>
+            {/*
+              A missing role means provisioning did not finish. Say so rather
+              than rendering a blank line, since it explains why the account
+              can reach nothing.
+            */}
+            <p className="text-xs text-muted-foreground">
+              {user.role ? roleLabel(user.role) : "No role assigned"}
+            </p>
+          </div>
+
+          <SignOutButton />
+        </div>
       </aside>
 
       <main className="flex-1 p-8">{children}</main>

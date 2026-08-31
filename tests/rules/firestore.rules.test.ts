@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 import {
   assertFails,
+  assertSucceeds,
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
@@ -63,5 +64,72 @@ describe("firestore.rules baseline", () => {
   it("denies an admin-claimed client from writing arbitrary collections", async () => {
     const db = testEnv.authenticatedContext("user-1", { role: "ADMIN" }).firestore();
     await assertFails(setDoc(doc(db, "anything/else"), { value: 1 }));
+  });
+});
+
+describe("profiles rules", () => {
+  /**
+   * Profiles are seeded with rules bypassed, the way the Admin SDK writes
+   * them in production. Seeding through the client path would test the seed
+   * rather than the rule under test.
+   */
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, "profiles/user-1"), { email: "a@example.com", role: "SOCIAL_MANAGER" });
+      await setDoc(doc(db, "profiles/user-2"), { email: "b@example.com", role: "MANAGER" });
+    });
+  });
+
+  it("lets a user read their own profile", async () => {
+    const db = testEnv.authenticatedContext("user-1", { role: "SOCIAL_MANAGER" }).firestore();
+    await assertSucceeds(getDoc(doc(db, "profiles/user-1")));
+  });
+
+  it("denies reading another user's profile", async () => {
+    const db = testEnv.authenticatedContext("user-1", { role: "SOCIAL_MANAGER" }).firestore();
+    await assertFails(getDoc(doc(db, "profiles/user-2")));
+  });
+
+  it("denies a MANAGER reading another user's profile", async () => {
+    const db = testEnv.authenticatedContext("user-2", { role: "MANAGER" }).firestore();
+    await assertFails(getDoc(doc(db, "profiles/user-1")));
+  });
+
+  it("lets an ADMIN read any profile", async () => {
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+    await assertSucceeds(getDoc(doc(db, "profiles/user-1")));
+  });
+
+  it("denies an unauthenticated read", async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(db, "profiles/user-1")));
+  });
+
+  it("denies a user writing their own profile, which would let them set their role", async () => {
+    const db = testEnv.authenticatedContext("user-1", { role: "SOCIAL_MANAGER" }).firestore();
+    await assertFails(setDoc(doc(db, "profiles/user-1"), { role: "ADMIN" }));
+  });
+
+  it("denies an ADMIN writing a profile from the client, since provisioning is server-side", async () => {
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+    await assertFails(setDoc(doc(db, "profiles/user-2"), { role: "ADMIN" }));
+  });
+});
+
+describe("auditLogs rules", () => {
+  it("denies an ADMIN reading audit logs from the client", async () => {
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+    await assertFails(getDoc(doc(db, "auditLogs/entry-1")));
+  });
+
+  it("denies writing an audit entry from the client", async () => {
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+    await assertFails(setDoc(doc(db, "auditLogs/entry-1"), { action: "LOGIN" }));
+  });
+
+  it("denies an unauthenticated read", async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(db, "auditLogs/entry-1")));
   });
 });

@@ -15,10 +15,11 @@ run what exists today.
 |---|---|
 | −1 — Platform access spike | Complete ([notes](docs/module--1-platform-access-spike.md)) |
 | 00 — Foundation | Complete ([plan](docs/module-00-plan.md)) |
-| 01 — Authentication & Access Control | Not started |
+| 01 — Authentication & Access Control | Complete ([plan](docs/module-01-plan.md)) |
+| 02 — Company & Brand Intelligence | Not started |
 
-Module 00 is an empty, tested application shell. No product feature exists
-yet: no news, no content generation, no publishing, no login.
+The app now has login, roles and protected routes, and nothing else. No
+news, no content generation, no publishing.
 
 ## Stack
 
@@ -59,20 +60,52 @@ npm run dev              # development server
 npm run verify           # typecheck + lint + format check + unit tests + build
 npm run test             # Vitest unit tests
 npm run test:rules       # Firestore rules tests against the emulator
-npm run test:e2e         # Playwright smoke tests
+npm run test:e2e         # Playwright tests that need no credentials
+npm run test:e2e:auth    # full login flow against the emulators
 npm run verify:services  # live credential check against Firestore + Cloudinary
 npm run emulators        # Firestore + Auth emulators
+npm run provision:user   # create or update an account (see below)
 ```
 
 `npm run verify` is the offline quality gate (§59) — it needs no credentials
 and no network. `verify:services` is the separate, deliberately manual check
 that real credentials work.
 
+## Accounts
+
+There is no signup route and there must never be one (§26). Accounts are
+created by an administrator with the Admin SDK:
+
+```bash
+npm run provision:user -- --email someone@company.com --role ADMIN --name "Full Name"
+```
+
+Roles are `ADMIN`, `MANAGER` and `SOCIAL_MANAGER` (§27). The role lives in a
+Firebase Auth custom claim, which is what Security Rules and the server
+trust; the copy on `profiles/{uid}` is for display only. Omitting
+`--password` generates a temporary one and prints it once — the user should
+sign in and reset it immediately.
+
+The same script disables an account, revoking its sessions at the same time:
+
+```bash
+npm run provision:user -- --email someone@company.com --disable
+```
+
+The **first** ADMIN has to be created this way, before anything is reachable.
+
 ## Notes on two deliberate choices
 
 **Firestore rules start closed.** `firestore.rules` denies every read and
 write. Each module opens exactly what it needs, and deny cases are tested,
 not just allow cases (§58).
+
+**Two layers guard every route, and only one of them counts.** `proxy.ts`
+redirects when the session cookie is missing, but it runs on the Edge
+runtime where the Admin SDK cannot run — it cannot tell a valid cookie from
+a forged one. The real check is `requireUser()` in the authenticated layout
+and in server routes. §33 is explicit that the Admin SDK bypasses Security
+Rules, so server code authorizes itself.
 
 **`/api/health` does nothing.** It is the keep-warm target for the n8n cron
 that stops the Render free instance from spinning down (§28). It touches no
