@@ -1,5 +1,5 @@
 {
-  "_comment": "Accounts the credentialed e2e run signs in as. Emulator-only: they are seeded by scripts/seed-e2e-user.mjs into the Auth emulator's in-memory state, which is why literal passwords here are not secrets. JSON so the seed script and the Playwright specs read the same file and cannot drift apart.",
+  "_comment": "Accounts the credentialed e2e run signs in as. Emulator-only: they are seeded by scripts/seed-e2e-user.mjs into the Auth emulator's in-memory state, which is why literal passwords here are not secrets. JSON so the seed script and the Playwright specs read the same file and cannot drift apart. signOutAdmin exists because signing out revokes the account's refresh tokens for every session \u2014 correct behaviour, but it would log the other spec files out mid-test if they shared an account.",
   "admin": {
     "email": "e2e-admin@example.test",
     "password": "e2e-password-not-a-secret",
@@ -11,5 +11,11 @@
     "password": "e2e-password-not-a-secret",
     "role": "SOCIAL_MANAGER",
     "displayName": "E2E Social Manager"
+  },
+  "signOutAdmin": {
+    "email": "e2e-signout@example.test",
+    "password": "e2e-password-not-a-secret",
+    "role": "ADMIN",
+    "displayName": "E2E Sign Out Admin"
   }
 }

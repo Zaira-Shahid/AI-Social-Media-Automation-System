@@ -47,6 +47,8 @@ const NAVIGATION: NavItem[] = [
   {
     label: "News",
     icon: Newspaper,
+    href: "/news",
+    permission: "content:view",
     children: [{ label: "Sources", href: "/news/sources", permission: "sources:manage" }],
   },
   { label: "Content", icon: FileText },

@@ -40,6 +40,24 @@ const serverEnvSchema = z.object({
    */
   FIREBASE_DATABASE_ID: z.string().min(1).default("(default)"),
 
+  /*
+   * AI provider (§30). "mock" simulates every call (§21) and needs no key,
+   * which is what keeps development, CI and the emulator run off a live
+   * service (§58).
+   */
+  AI_PROVIDER: z.enum(["groq", "mock"]).default("mock"),
+
+  /*
+   * Optional so the app boots without it in mock mode. It is checked where
+   * the provider is built, not here — a missing key must fail with "AI_PROVIDER
+   * is groq but GROQ_API_KEY is not set", not with a generic env error that
+   * appears even when nothing needs a key.
+   */
+  GROQ_API_KEY: z.string().min(1).optional(),
+
+  /** Overrides the adapter's default. Only some models support strict JSON schema. */
+  AI_MODEL: z.string().min(1).optional(),
+
   CLOUDINARY_CLOUD_NAME: z.string().min(1, "CLOUDINARY_CLOUD_NAME is required"),
   CLOUDINARY_API_KEY: z.string().min(1, "CLOUDINARY_API_KEY is required"),
   CLOUDINARY_API_SECRET: z.string().min(1, "CLOUDINARY_API_SECRET is required"),

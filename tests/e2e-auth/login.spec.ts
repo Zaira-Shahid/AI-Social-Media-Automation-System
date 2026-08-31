@@ -2,7 +2,12 @@ import { expect, test } from "@playwright/test";
 
 import fixture from "../fixtures/e2e-user.json";
 
-const E2E_USER = fixture.admin;
+/*
+ * A dedicated account. Signing out revokes the user's refresh tokens across
+ * every session — which is the point of it — so sharing an account with the
+ * other spec files would log them out mid-test.
+ */
+const E2E_USER = fixture.signOutAdmin;
 
 /**
  * Credentialed login flow (spec §26, §58).

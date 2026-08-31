@@ -5,6 +5,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { logger } from "@/lib/logger";
 import {
+  newsItemSchema,
   AUTOMATION_RUNS_COLLECTION,
   EMPTY_SOURCE_HEALTH,
   NEWS_ITEMS_COLLECTION,
@@ -13,6 +14,7 @@ import {
   sourceHealthSchema,
   type AutomationRun,
   type NewsSource,
+  type NewsItemStatus,
   type NewsSourceInput,
   type SourceHealth,
 } from "@/lib/news/schema";
@@ -51,6 +53,59 @@ function parseSource(id: string, data: unknown): NewsSource | null {
   const health = sourceHealthSchema.safeParse((data as { health?: unknown }).health);
 
   return { id, ...parsed.data, health: health.success ? health.data : EMPTY_SOURCE_HEALTH };
+}
+
+/**
+ * A stored item, plus the ranking fields Module 04 adds.
+ *
+ * The scores are optional because an item that has not been ranked yet does
+ * not have them — and §6's shape deliberately leaves them absent rather than
+ * writing zeroes that would be indistinguishable from real low scores.
+ */
+export interface StoredNewsItem {
+  id: string;
+  title: string;
+  summary: string;
+  sourceName: string;
+  sourceId: string;
+  sourceUrl: string;
+  publishedAt: string;
+  category: string;
+  duplicateGroup: string;
+  status: NewsItemStatus;
+  compositeScore?: number;
+  relevanceScore?: number;
+  aiAnalysis?: Record<string, unknown>;
+}
+
+function parseItem(id: string, data: unknown): StoredNewsItem | null {
+  const parsed = newsItemSchema.safeParse(data);
+
+  if (!parsed.success) {
+    logger.warn("Stored news item did not match the schema; skipping", { id });
+    return null;
+  }
+
+  const extra = data as Record<string, unknown>;
+
+  return {
+    id,
+    title: parsed.data.title,
+    summary: parsed.data.summary,
+    sourceName: parsed.data.sourceName,
+    sourceId: parsed.data.sourceId,
+    sourceUrl: parsed.data.sourceUrl,
+    publishedAt: parsed.data.publishedAt,
+    category: parsed.data.category,
+    duplicateGroup: parsed.data.duplicateGroup,
+    status: parsed.data.status,
+    compositeScore: typeof extra.compositeScore === "number" ? extra.compositeScore : undefined,
+    relevanceScore: typeof extra.relevanceScore === "number" ? extra.relevanceScore : undefined,
+    aiAnalysis:
+      extra.aiAnalysis && typeof extra.aiAnalysis === "object"
+        ? (extra.aiAnalysis as Record<string, unknown>)
+        : undefined,
+  };
 }
 
 export async function listSources(): Promise<NewsSource[]> {
@@ -165,6 +220,61 @@ export async function upsertNewsItems(entries: NormalizedEntry[]): Promise<{ cre
   await batch.commit();
 
   return { created };
+}
+
+/**
+ * Items waiting to be ranked (§7).
+ *
+ * Uses the declared `(status, publishedAt)` index. Bounded because ranking
+ * costs tokens and the free plan is small (§29) — an unbounded backlog would
+ * spend the day's quota on stories nobody will read.
+ */
+export async function listItemsForRanking(limit: number): Promise<StoredNewsItem[]> {
+  const snapshot = await items()
+    .where("status", "==", "DISCOVERED")
+    .orderBy("publishedAt", "desc")
+    .limit(limit)
+    .get();
+
+  return snapshot.docs
+    .map((document) => parseItem(document.id, document.data()))
+    .filter((item): item is StoredNewsItem => item !== null);
+}
+
+/** Shortlisted and ranked items, newest first, for the review screen (§8). */
+export async function listRankedItems(limit: number): Promise<StoredNewsItem[]> {
+  const [shortlisted, ranked] = await Promise.all([
+    items().where("status", "==", "SHORTLISTED").orderBy("publishedAt", "desc").limit(limit).get(),
+    items().where("status", "==", "RANKED").orderBy("publishedAt", "desc").limit(limit).get(),
+  ]);
+
+  return [...shortlisted.docs, ...ranked.docs]
+    .map((document) => parseItem(document.id, document.data()))
+    .filter((item): item is StoredNewsItem => item !== null)
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+}
+
+/**
+ * Write a ranking result.
+ *
+ * Merged, so the normalized fields Module 03 wrote are untouched. `status`,
+ * the scores and `aiAnalysis` are all server-written — §33 forbids a client
+ * writing any of them.
+ */
+export async function saveRanking(
+  id: string,
+  ranking: {
+    status: NewsItemStatus;
+    relevanceScore: number;
+    credibilityScore: number;
+    socialPotentialScore: number;
+    compositeScore: number;
+    aiAnalysis: Record<string, unknown>;
+  },
+): Promise<void> {
+  await items()
+    .doc(id)
+    .set({ ...ranking, rankedAt: FieldValue.serverTimestamp() }, { merge: true });
 }
 
 export async function countNewsItems(): Promise<number> {
