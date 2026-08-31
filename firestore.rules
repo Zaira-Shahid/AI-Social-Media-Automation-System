@@ -57,6 +57,28 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // News sources (§5) and normalized items (§6). Readable by any signed-in
+    // user; the news screen and the shortlist both need them.
+    //
+    // No client write. Sources go through the server action that validates
+    // them, and `status` on an item is server-controlled — §33 forbids a client
+    // writing status anywhere.
+    match /newsSources/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /newsItems/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Automation run records (§41, §45). Server-only, like the audit log — a
+    // client that can write these can forge the operational history.
+    match /automationRuns/{document} {
+      allow read, write: if false;
+    }
+
     // Audit logs (§55) are server-only. Denied outright, including reads: an
     // audit trail a client can read is a map of who did what, and one a
     // client can write is not evidence of anything (§33).

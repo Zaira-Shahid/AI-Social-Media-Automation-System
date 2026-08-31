@@ -63,16 +63,17 @@ for (const key of ["admin", "socialManager"]) {
 }
 
 /*
- * Clear the brand profile between runs.
+ * Clear configuration and discovered data between runs.
  *
- * The brand spec asserts the empty state, and a profile left behind by an
- * earlier run would make that assertion pass or fail depending on run order.
+ * The brand and sources specs both assert an empty state, and documents left
+ * behind by an earlier run would make those assertions pass or fail depending
+ * on run order.
  */
-for (const collection of ["companySettings", "brandSettings"]) {
+for (const collection of ["companySettings", "brandSettings", "newsSources", "newsItems"]) {
   const documents = await db.collection(collection).listDocuments();
   await Promise.all(documents.map((document) => document.delete()));
 }
 
-console.log("Cleared brand profile documents");
+console.log("Cleared brand and news documents");
 
 process.exit(0);
