@@ -44,16 +44,19 @@ try {
 
 await auth.setCustomUserClaims(user.uid, { role });
 
-await getFirestore().collection("profiles").doc(user.uid).set(
-  {
-    email,
-    displayName: "E2E Admin",
-    role,
-    status: "ACTIVE",
-    updatedAt: FieldValue.serverTimestamp(),
-  },
-  { merge: true },
-);
+await getFirestore(process.env.FIREBASE_DATABASE_ID ?? "(default)")
+  .collection("profiles")
+  .doc(user.uid)
+  .set(
+    {
+      email,
+      displayName: "E2E Admin",
+      role,
+      status: "ACTIVE",
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
 
 console.log(`Seeded ${email} (${role}) in the emulator as ${user.uid}`);
 process.exit(0);

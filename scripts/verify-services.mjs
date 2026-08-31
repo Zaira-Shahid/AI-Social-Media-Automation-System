@@ -36,6 +36,13 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+/**
+ * "(default)" is a literal name, parentheses included. A database created
+ * with an explicit ID (for example "default") is a different database, and
+ * targeting the wrong one fails as a bare `5 NOT_FOUND`.
+ */
+const DATABASE_ID = process.env.FIREBASE_DATABASE_ID ?? "(default)";
+
 /** Round-trip a throwaway document, then remove it. No product collection is touched. */
 async function checkFirestore() {
   const app = initializeApp(
@@ -52,7 +59,7 @@ async function checkFirestore() {
   );
 
   try {
-    const ref = getFirestore(app).collection("_healthcheck").doc("module-00");
+    const ref = getFirestore(app, DATABASE_ID).collection("_healthcheck").doc("module-00");
     await ref.set({ checkedAt: new Date().toISOString() });
     const snapshot = await ref.get();
     if (!snapshot.exists) throw new Error("document written but not readable");
@@ -74,7 +81,7 @@ async function checkCloudinary() {
 }
 
 const checks = [
-  ["Firestore (Admin SDK write/read/delete)", checkFirestore],
+  [`Firestore (Admin SDK write/read/delete on database ${DATABASE_ID})`, checkFirestore],
   ["Cloudinary (credentials ping)", checkCloudinary],
 ];
 

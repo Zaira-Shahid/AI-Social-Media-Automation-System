@@ -53,6 +53,29 @@ created in the Firebase console for the project named in
 `FIREBASE_ADMIN_PROJECT_ID`. Creating the project alone is not enough — the
 Firestore API stays disabled until a database exists.
 
+**Then check the database's ID**, because it is not always what it looks
+like:
+
+```bash
+firebase firestore:databases:list --project <project-id>
+```
+
+A project's first database is normally called `(default)` — parentheses
+included, they are part of the literal name. Multi-database Firestore also
+allows plain IDs, so a database can end up called `default` without them,
+and that is a *different* database. Pointing at the wrong one fails as a
+bare `5 NOT_FOUND` that names neither the database it tried nor the one that
+exists.
+
+If the ID is anything other than `(default)`, set both halves — they must
+match, and `firebase.json`'s `database` field must match too or rules deploy
+to a database that is not there:
+
+```dotenv
+FIREBASE_DATABASE_ID=default
+NEXT_PUBLIC_FIREBASE_DATABASE_ID=default
+```
+
 ## Commands
 
 ```bash

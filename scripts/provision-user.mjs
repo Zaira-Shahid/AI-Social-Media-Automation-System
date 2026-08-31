@@ -66,8 +66,15 @@ initializeApp({
   projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
 });
 
+/**
+ * "(default)" is a literal name, parentheses included. A database created
+ * with an explicit ID (for example "default") is a different database, and
+ * targeting the wrong one fails as a bare `5 NOT_FOUND`.
+ */
+const DATABASE_ID = process.env.FIREBASE_DATABASE_ID ?? "(default)";
+
 const auth = getAuth();
-const db = getFirestore();
+const db = getFirestore(DATABASE_ID);
 
 /** Look the user up by email; create them if they do not exist yet. */
 async function findOrCreate(email) {
