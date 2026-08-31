@@ -1,39 +1,15 @@
-import {
-  BarChart3,
-  CalendarDays,
-  FileText,
-  Home,
-  Newspaper,
-  Palette,
-  Settings,
-  Share2,
-  Target,
-  Workflow,
-} from "lucide-react";
-
+import { MainNav } from "@/components/main-nav";
 import { SignOutButton } from "@/components/sign-out-button";
 import { roleLabel } from "@/lib/auth/roles";
 import type { SessionUser } from "@/lib/auth/session";
 
 /**
- * Navigation structure from spec §34.
+ * Authenticated application shell.
  *
- * Module 00 renders the shell only — every destination is inert. Screens are
- * built in their own modules (§35–§43).
+ * The navigation itself lives in `main-nav.tsx`, which is a client component
+ * because it highlights the active route. Everything here stays on the
+ * server so the session user is never serialized further than it needs to be.
  */
-const NAVIGATION = [
-  { label: "Dashboard", icon: Home },
-  { label: "News", icon: Newspaper },
-  { label: "Content", icon: FileText },
-  { label: "Calendar", icon: CalendarDays },
-  { label: "Analytics", icon: BarChart3 },
-  { label: "Strategy", icon: Target },
-  { label: "Automation", icon: Workflow },
-  { label: "Social Accounts", icon: Share2 },
-  { label: "Brand", icon: Palette },
-  { label: "Settings", icon: Settings },
-] as const;
-
 export function AppShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
@@ -43,21 +19,7 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
           <p className="text-xs text-muted-foreground">Command Center</p>
         </div>
 
-        <nav aria-label="Main" className="flex-1">
-          <ul className="space-y-1">
-            {NAVIGATION.map(({ label, icon: Icon }) => (
-              <li key={label}>
-                <span
-                  aria-disabled="true"
-                  className="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground"
-                >
-                  <Icon className="size-4" aria-hidden="true" />
-                  {label}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <MainNav role={user.role} />
 
         <div className="mt-6 border-t border-border pt-4">
           <div className="mb-2 px-2">

@@ -133,3 +133,47 @@ describe("auditLogs rules", () => {
     await assertFails(getDoc(doc(db, "auditLogs/entry-1")));
   });
 });
+
+describe("brand profile rules", () => {
+  /** Seeded the way the server action writes them: through the Admin SDK, rules bypassed. */
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, "companySettings/default"), { name: "Acme" });
+      await setDoc(doc(db, "brandSettings/default"), { toneOfVoice: "Direct" });
+    });
+  });
+
+  it("lets any signed-in user read the brand, since previews need it", async () => {
+    const db = testEnv.authenticatedContext("user-1", { role: "SOCIAL_MANAGER" }).firestore();
+
+    await assertSucceeds(getDoc(doc(db, "brandSettings/default")));
+    await assertSucceeds(getDoc(doc(db, "companySettings/default")));
+  });
+
+  it("denies an unauthenticated read", async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+
+    await assertFails(getDoc(doc(db, "brandSettings/default")));
+    await assertFails(getDoc(doc(db, "companySettings/default")));
+  });
+
+  it("denies a client write even from an ADMIN, since that would bypass validation", async () => {
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+
+    await assertFails(setDoc(doc(db, "brandSettings/default"), { toneOfVoice: "Anything" }));
+    await assertFails(setDoc(doc(db, "companySettings/default"), { name: "Anything" }));
+  });
+
+  it("denies a client write from every other role", async () => {
+    for (const role of ["MANAGER", "SOCIAL_MANAGER"]) {
+      const db = testEnv.authenticatedContext(`user-${role}`, { role }).firestore();
+      await assertFails(setDoc(doc(db, "brandSettings/default"), { toneOfVoice: "Anything" }));
+    }
+  });
+
+  it("denies reading a sibling document that no rule opens", async () => {
+    const db = testEnv.authenticatedContext("user-1", { role: "ADMIN" }).firestore();
+    await assertFails(getDoc(doc(db, "brandTemplates/default")));
+  });
+});
