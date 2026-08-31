@@ -1,0 +1,37 @@
+import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
+
+import { getClientEnv } from "@/lib/env.client";
+
+/**
+ * Firebase client SDK — browser-safe.
+ *
+ * Unlike the Admin SDK, everything reached through this client IS subject to
+ * Firestore Security Rules (spec §33). That is the intended access path for
+ * anything the browser touches.
+ */
+function getClientApp(): FirebaseApp {
+  if (getApps().length > 0) return getApp();
+
+  const env = getClientEnv();
+
+  return initializeApp({
+    apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    // No storageBucket: storage is Cloudinary, not Firebase Storage (§28).
+  });
+}
+
+export function getClientFirestore(): Firestore {
+  return getFirestore(getClientApp());
+}
+
+export function getClientAuth(): Auth {
+  return getAuth(getClientApp());
+}
+
+export { getClientApp };

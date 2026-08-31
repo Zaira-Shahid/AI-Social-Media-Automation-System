@@ -1,0 +1,12 @@
+# The master specification and module reports are hand-formatted prose.
+# Prettier reflows their tables and lists, producing large meaningless diffs.
+*.md
+docs/
+
+# Generated / vendored
+.next/
+node_modules/
+package-lock.json
+coverage/
+playwright-report/
+test-results/

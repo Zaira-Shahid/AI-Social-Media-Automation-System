@@ -1,0 +1,306 @@
+# Module 00 — Foundation: Implementation Plan
+
+**Status:** Implemented (§64 Steps 1–9 complete). Verified 2026-08-31.
+**Branch:** `feature/module-00-foundation`
+**Outstanding owner action:** create the Firestore database in the Firebase
+console — see "Implementation record" at the end of this document.
+
+---
+
+## Step 1 — Read
+
+Master specification read in full (2700+ lines, §0–§71), incorporating all
+decisions settled to date: Firebase/Firestore on Spark, Cloudinary storage,
+Facebook/Instagram/LinkedIn only, per-platform approval, Satori/resvg,
+encrypted token storage, Vitest/Playwright/Emulator testing.
+
+## Step 2 — Inspect
+
+| Item | State |
+|---|---|
+| Tracked files | `AI-Social-Media-Automation-System.md`, `docs/module--1-platform-access-spike.md` |
+| `package.json` | Does not exist |
+| `src/` | Does not exist |
+| Application architecture | None yet — greenfield |
+| Firestore collections | None yet |
+| Environment configuration | None yet |
+| Existing tests | None yet |
+| Node | v24.14.0 |
+| npm | 11.9.0 |
+| Docker | 29.6.1 (available for n8n and Firebase emulators) |
+| Branches | `main`, `develop`, `feature/module-00-foundation` |
+
+Nothing to reuse or migrate. No existing code constrains this module.
+
+## Step 3 — Plan
+
+### Scope
+
+Module 00 delivers a running, tested, empty application shell. It builds
+**no** product features — no news, no content, no publishing, no brand UI.
+
+Explicitly out of scope: authentication logic (Module 01), any Firestore
+collection beyond a connectivity check, any Cloudinary upload beyond a
+configuration check.
+
+---
+
+### 3.1 Project scaffolding
+
+- Next.js (App Router) + TypeScript, strict mode enabled.
+- Tailwind CSS.
+- shadcn/ui initialized; Lucide icons.
+- ESLint + Prettier, with a format check wired into the lint script.
+- `zod` installed — used immediately by env validation (3.3).
+
+### 3.2 Repository hygiene — do first, before any credential exists
+
+`.gitignore` must be committed **before** any credential file can plausibly
+land in the working tree. It must cover:
+
+```text
+.env*                         (except .env.example)
+*serviceAccount*.json
+node_modules/
+.next/
+coverage/
+playwright-report/
+test-results/
+.firebase/
+```
+
+Rationale: the Firebase Admin service account is the highest-privilege
+secret in the system (§56). Committing it once means rotating it. The
+ignore rules exist before the risk does.
+
+### 3.3 Environment handling
+
+`.env.example` documenting every required variable, in two clearly
+separated groups (§57):
+
+**Client-safe (may reach the browser):**
+
+```text
+NEXT_PUBLIC_FIREBASE_API_KEY
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+NEXT_PUBLIC_FIREBASE_PROJECT_ID
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET      (unused — Cloudinary is storage)
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+NEXT_PUBLIC_FIREBASE_APP_ID
+```
+
+**Server-only (never in the client bundle):**
+
+```text
+FIREBASE_ADMIN_PROJECT_ID
+FIREBASE_ADMIN_CLIENT_EMAIL
+FIREBASE_ADMIN_PRIVATE_KEY
+CLOUDINARY_CLOUD_NAME
+CLOUDINARY_API_KEY
+CLOUDINARY_API_SECRET
+TOKEN_ENCRYPTION_KEY
+APP_TIMEZONE                              (Asia/Karachi)
+N8N_WEBHOOK_SECRET                        (placeholder; used from Module 03)
+```
+
+Validated at startup with Zod, in **two separate schemas** — a client schema
+and a server schema. The server schema is imported only from server code. A
+missing or malformed variable fails fast at boot with a clear message,
+rather than surfacing as a confusing runtime error later.
+
+`.env.example` contains names and shapes only — never real values.
+
+### 3.4 Firebase initialization
+
+Two distinct initialization paths, deliberately kept in separate files so
+they cannot be confused:
+
+- **Client SDK** (`lib/firebase/client.ts`) — browser-safe config only.
+- **Admin SDK** (`lib/firebase/admin.ts`) — marked server-only, guarded by a
+  singleton so Next.js hot reload does not re-initialize the app.
+
+Firestore connectivity is verified by a single trivial read/write against a
+throwaway `_healthcheck` document, then cleaned up. No product collections
+are created in this module.
+
+Firebase Auth is initialized but **no login flow is built** — that is
+Module 01.
+
+**No Cloud Storage bucket is configured.** Storage is Cloudinary (§28).
+
+### 3.5 Cloudinary configuration
+
+Server-side SDK configured and its credentials validated. A configuration
+check confirms the credentials authenticate. **No upload pipeline is built**
+— that is Module 08.
+
+### 3.6 Firestore Security Rules baseline
+
+`firestore.rules` committed with a **default-deny** baseline:
+
+```text
+match /{document=**} {
+  allow read, write: if false;
+}
+```
+
+Every later module opens access explicitly and narrowly. Starting closed
+means no collection is ever accidentally world-readable during development.
+
+`firebase.json` + `.firebaserc` configure the emulator suite (Firestore +
+Auth). Emulators run locally via the Firebase CLI.
+
+### 3.7 Testing foundation
+
+- **Vitest** — configured with a first test covering env-schema validation
+  (proving a malformed env is rejected).
+- **Playwright** — configured with a smoke test that the base layout renders.
+- **Firebase Emulator Suite** + `@firebase/rules-unit-testing` — a rules test
+  asserting the default-deny baseline actually denies an unauthenticated
+  read. Per §58, deny cases are tested, not just allow cases.
+
+All three runners wired into npm scripts and proven to pass before the
+module is considered complete.
+
+### 3.8 Base layout and logging
+
+- Minimal app shell with the §34 navigation structure present but inert
+  (Dashboard, News, Content, Calendar, Analytics, Strategy, Automation,
+  Social Accounts, Brand, Settings). No screens implemented.
+- A small structured logging utility with a redaction helper, so no token,
+  key or secret can be logged (§55, §56).
+
+### 3.9 Health-check endpoint (required by the Render keep-warm cron)
+
+Render free services spin down after 15 minutes idle, and a ~1 minute cold
+start would break Slack's 3-second interactivity deadline (§9). n8n runs a
+keep-warm cron every ~10 minutes against this endpoint, so it must exist
+from Module 00 — before anything depends on the app being reachable.
+
+Requirements:
+
+- Unauthenticated (it must work before any login exists) but revealing
+  nothing: no version strings, no config, no dependency status.
+- **Cheap.** No Firestore read, no Cloudinary call, no external request. Its
+  job is to keep the instance awake and confirm the process is alive.
+- Excluded from audit logs (§55) and from automation run counts (§41), or
+  ~4,300 pings per month will bury real activity.
+- Returns a plain `200`.
+
+A deeper readiness check that does touch dependencies may be added later as
+a **separate** authenticated endpoint. It must not be this one.
+
+### 3.10 Git conventions
+
+- Conventional Commits (§62).
+- Branch flow per §60: `feature/module-00-foundation` → `develop`.
+
+---
+
+### Verification before this module is called complete (§59)
+
+```text
+Vitest passes
+Playwright smoke test passes
+Emulator rules test passes (default-deny verified)
+Lint passes
+Type check passes
+Production build succeeds
+No secret committed (git history checked)
+Documentation updated
+```
+
+---
+
+### Open questions for the owner
+
+1. ~~Where does the Next.js app ultimately run?~~ **RESOLVED 2026-08-30
+   (final)** — **Render free tier**, persistent `*.onrender.com` subdomain,
+   no credit card, no domain required. Vercel rejected (Hobby is explicitly
+   non-commercial; Pro is paid). Cloudflare Tunnel rejected (a named tunnel
+   needs a domain, and none is owned). n8n stays outbound-only.
+
+   Two carried items, neither blocking Module 00:
+   - Render's commercial-use ToS is **UNVERIFIED** — accepted risk, recorded
+     in §28. Should be read and the section updated.
+   - Free services spin down after 15 minutes idle. Module 00 must ship the
+     health-check endpoint that the n8n keep-warm cron will call (see 3.10).
+
+2. **Admin SDK credential format** — plan assumes three discrete env vars
+   (`PROJECT_ID` / `CLIENT_EMAIL` / `PRIVATE_KEY`) rather than a JSON file
+   on disk, so nothing credential-shaped ever sits in the repo. Note that
+   `FIREBASE_ADMIN_PRIVATE_KEY` contains literal `\n` sequences that must be
+   unescaped at load time — a common source of confusing auth failures.
+
+3. **`TOKEN_ENCRYPTION_KEY`** must be a 32-byte key. I will generate one for
+   local development; production value is the owner's to set and store.
+
+---
+
+---
+
+## Implementation record (§64 Steps 4–9)
+
+Credentials were supplied and the module was built as planned. Deviations
+and findings are recorded below; everything else matches Step 3.
+
+### Deviations from the plan
+
+| Plan | What shipped | Why |
+|---|---|---|
+| 3.1 shadcn/ui initialized | `components.json` + `src/components/ui/button.tsx`, base-nova style, neutral base | `shadcn init` owns `globals.css`, so the hand-written `@theme` palette written earlier was removed and the shell switched to shadcn tokens (`border-border`, `text-muted-foreground`). Keeping both would have left two conflicting definitions of the same variables. |
+| 3.4 Firestore connectivity check | `scripts/verify-services.mjs`, run via `npm run verify:services` | Kept out of `npm run verify`. The quality gate (§59) must run offline and without credentials; a live dependency check does neither. The script is standalone plain JS because the app's Firebase and Cloudinary helpers are `server-only` and cannot be imported from a Node script. |
+
+### Verification (§59)
+
+| Gate | Result |
+|---|---|
+| Type check (`tsc --noEmit`) | pass |
+| Lint (`eslint .`) | pass |
+| Format check (`prettier --check .`) | pass |
+| Vitest | pass — 12 tests, 2 files |
+| Playwright smoke | pass — 2 tests |
+| Emulator rules test (default-deny) | pass — 5 tests |
+| Production build (`next build`) | pass — `/`, `/_not-found`, `/api/health` |
+| No secret committed | verified — no env, service-account, `.pem` or `.key` file appears anywhere in git history |
+
+### Live credential check (`npm run verify:services`)
+
+| Service | Result |
+|---|---|
+| Cloudinary — credentials ping | **PASS** |
+| Firestore — Admin SDK write/read/delete on `_healthcheck/module-00` | **FAIL** |
+
+Firestore returned `7 PERMISSION_DENIED: Cloud Firestore API has not been
+used in project ai-social-media-system before or it is disabled.`
+
+This is a console setup gap, not a code fault: the Firebase project exists
+and the service-account credentials authenticate, but **no Firestore
+database has been created in it**. The Firestore API stays disabled until
+one is.
+
+**Owner action:** in the Firebase console for `ai-social-media-system`,
+create a Firestore database (Spark plan, production mode — the committed
+rules are default-deny, so mode choice is not load-bearing), then re-run
+`npm run verify:services`. Both lines must read PASS before Module 01
+starts, since authentication writes user documents.
+
+This does not block the rest of Module 00: rules are verified against the
+emulator, which needs no cloud database.
+
+### Security review (§64 Step 7)
+
+- Admin SDK and Cloudinary modules are marked `server-only`; importing
+  either from client code is a build error.
+- Env parsing is split into two schemas. The server schema is never reachable
+  from the client bundle.
+- Failed env validation reports which keys are wrong, never their values.
+- Firestore rules deny everything; the deny path is covered by a test.
+- `/api/health` is unauthenticated and therefore returns `{ status: "ok" }`
+  and nothing else — no version, config or dependency state.
+- Git history contains no credential-shaped file.
+
+### Next
+
+Module 01 — Authentication & Access Control. Do not begin before the
+Firestore database exists.

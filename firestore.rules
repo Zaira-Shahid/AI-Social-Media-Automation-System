@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// Firestore Security Rules — baseline (spec §33).
+//
+// Default-deny. Nothing is readable or writable by any client until a later
+// module opens a collection explicitly and narrowly. Starting closed means no
+// collection is ever accidentally world-readable during development.
+//
+// Two things these rules deliberately do NOT do:
+//
+//   1. They do not apply to the Firebase Admin SDK, which bypasses rules
+//      entirely. Every server path using the Admin SDK must perform its own
+//      authorization check.
+//   2. They will never permit a client to write a `status` field on content
+//      or platform post documents. Status transitions (§17) are enforced
+//      server-side only.
+//
+// Roles come from Firebase Auth custom claims (request.auth.token.role), set
+// only from a trusted server environment (§27, Module 01).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

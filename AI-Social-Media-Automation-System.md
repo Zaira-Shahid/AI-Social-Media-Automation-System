@@ -521,11 +521,39 @@ Static assets may include:
 - educational cards
 - carousel-style static images if technically practical
 
+## Image sourcing rule
+
+Generated posts must use **only** brand templates and Cloudinary-hosted
+branded assets owned by the company.
+
+A news article's own image must **never** be pulled into a generated post.
+Static cards are headline, text and branding only, rendered from our own
+templates.
+
+The `imageUrl` field captured during news normalization (§6) exists for
+reference and attribution in the internal UI only. It must never be passed
+into the static post generator or published.
+
+This is a legal requirement, not a stylistic preference. Republishing a
+publisher's image without a licence risks takedown and account termination
+on the company's own social accounts. It must be enforced as a validation
+rule in code, not merely documented.
+
 ---
 
 # 15. STATIC POST GENERATION
 
-The preferred implementation is template/programmatic generation using free tooling.
+Implementation: **SVG-based rendering via Satori (JSX/HTML + CSS → SVG),
+then resvg to rasterize SVG → PNG.**
+
+Headless Chromium (Puppeteer/Playwright rendering) must not be used for
+image generation. It is heavy, and unnecessary for static text-and-branding
+cards.
+
+Constraint to design to: Satori supports only a subset of CSS. Templates
+must be built within that subset from the start rather than designed freely
+and retrofitted. Fonts must be supplied explicitly as font data; there is
+no system font fallback.
 
 Concept:
 
@@ -697,6 +725,50 @@ The assistant must verify:
 Never invent any of these.
 
 If a capability is unavailable or requires additional approval, document it.
+
+## Token storage and lifecycle
+
+OAuth tokens must **never** be stored in plaintext.
+
+Storage:
+
+- Tokens are encrypted server-side with Node's `crypto` module using
+  symmetric encryption before being written to Firestore.
+- The encryption key is supplied through a server-only environment
+  variable. It is never committed, never sent to the client, never given
+  to n8n.
+- Use an authenticated encryption mode, so tampering is detectable rather
+  than silently decrypting to corrupt output.
+- Encryption and decryption happen only in server-side code holding Admin
+  SDK privileges. Firestore Security Rules must deny all client access to
+  the social account collection outright (§33) — encryption is a second
+  layer, not a substitute for rules.
+
+Per token, store:
+
+```text
+platform
+encrypted access token
+encrypted refresh token   (where the platform issues one)
+expiresAt                 timestamp
+lastRefreshedAt           timestamp
+status                    VALID | EXPIRING | EXPIRED | REVOKED
+```
+
+Lifecycle:
+
+- **Facebook / Instagram** — refresh automatically where the platform
+  supports it, before expiry.
+- **LinkedIn** — no refresh token is issued on the self-serve tier and
+  access tokens expire after 60 days. Automatic refresh is impossible.
+  Track `expiresAt` and send a Slack alert **5–7 days before expiry** so a
+  human can re-authorize in time.
+- An expired token must cause publishing to fail loudly and set the post
+  to FAILED with a clear reason (§52). It must never fail silently, and it
+  must never be reported as a successful publish (§67).
+- The Social Accounts screen (§42) must surface expiry state.
+
+Never log a token, encrypted or decrypted (§55).
 
 ---
 
@@ -1043,8 +1115,114 @@ GitHub
 ## Deployment
 
 ```text
-Vercel Hobby/free tier where suitable
+Next.js application — Render (free tier)
+Persistent public URL — <service>.onrender.com
 ```
+
+**This is the final hosting decision.**
+
+The application is deployed to Render's free tier, which provides a
+persistent `*.onrender.com` subdomain. No credit card is required and no
+domain registration is needed, so the project remains zero-paid.
+
+The Cloudflare Tunnel is **not** used. Render supplies the public URL
+directly.
+
+Architecture:
+
+```text
+n8n (local Docker)
+   ├── daily cron        → outbound → Render app webhook
+   └── keep-warm cron    → outbound → Render app health check
+                                          ↑
+                    Slack interactivity / OAuth redirects (inbound)
+```
+
+- **n8n remains outbound-only.** It is triggered by its own cron and calls
+  the application's endpoints over the public internet. It never receives
+  inbound traffic and is never publicly reachable. This principle is
+  unchanged.
+- **Slack interactivity** (§9) points at the Render URL.
+- **OAuth redirect URLs** (Modules 12–14) point at the Render URL.
+
+### Accepted risk: Render's commercial-use terms are UNVERIFIED
+
+Recorded honestly rather than assumed safe.
+
+Render's free tier documentation confirms no credit card is required, and
+no non-commercial restriction was found. However, **Render's Terms of
+Service were not successfully read during research**, so it is *not*
+confirmed that free-tier commercial use is permitted. "No restriction
+found" is weaker evidence than "explicitly permitted."
+
+This is an **accepted risk**, taken knowingly because Render is the only
+viable option that is free, requires no card, and provides a persistent
+public URL. It is not a verified-compliant position.
+
+Contrast with Vercel, which was rejected because its Hobby plan is
+*explicitly* documented as non-commercial personal use only (§2 defines
+this system as a company internal tool). Render carries an unknown, not a
+known conflict.
+
+**Follow-up required:** Render's Terms of Service should be read and this
+section updated to VERIFIED or re-decided. See
+`docs/hosting-and-domain-research.md`.
+
+### Keep-warm requirement
+
+Render free web services **spin down after 15 minutes of inactivity**, and
+cold start takes roughly one minute.
+
+Slack requires a response to an interactive action within **3 seconds**. A
+cold start would therefore cause the first Slack button press after an idle
+period to fail outright, breaking the §9 approval workflow.
+
+Mitigation:
+
+- The application exposes a lightweight **health-check endpoint**.
+- n8n runs a **keep-warm cron every ~10 minutes** that calls it.
+- The endpoint must be cheap: no database reads, no external calls, no
+  authentication side effects. It exists to keep the instance awake and to
+  report liveness.
+- Keep-warm pings must not be written to the audit log (§55) or counted as
+  automation runs (§41), or they will drown real activity.
+
+Budget: Render grants **750 instance hours per workspace per month**. A
+single service kept awake continuously consumes roughly 730 hours, which
+fits — but only for **one** service. Do not deploy a second free service
+in the same workspace without re-checking this budget.
+
+### Availability
+
+The application stays up on Render as long as keep-warm pings keep
+arriving. However, **n8n runs in local Docker**, so:
+
+- The 10:00 AM daily workflow (§3) fires only while the local machine is
+  running.
+- The keep-warm ping also stops when that machine is off. After 15 minutes
+  the Render service spins down, and the next inbound request — a Slack
+  action or an OAuth callback — pays the cold-start penalty and may fail.
+
+So the local machine's uptime still governs both the daily workflow and
+Slack responsiveness. This is accepted for the MVP.
+
+It must be stated honestly in operational documentation, and must never be
+presented in the UI as a system failure when it is simply a machine that
+was switched off.
+
+### Why not Vercel, and why no custom domain
+
+Recorded so these are not revisited.
+
+**Vercel** — its documentation states the Hobby plan "restricts users to
+non-commercial, personal use only," and its fair use guidelines count a
+company-owned project as commercial. Pro is compliant but paid, which §29
+forbids.
+
+**Cloudflare Tunnel** — a named tunnel gives a stable hostname but requires
+a domain the company controls. Quick tunnel hostnames change on every
+restart, which would break registered OAuth and Slack callbacks. No domain
+is owned, and buying one was declined to stay zero-paid.
 
 ---
 
@@ -1826,6 +2004,14 @@ Do not invent final variables before implementation.
 
 Every module requires appropriate tests.
 
+Stack:
+
+```text
+Vitest                  unit and integration tests
+Playwright              end-to-end tests
+Firebase Emulator Suite Firestore Security Rules tests
+```
+
 Use:
 
 ```text
@@ -1836,6 +2022,14 @@ Validation tests
 Permission tests
 Workflow tests
 ```
+
+Security Rules must be tested against the Firebase Emulator Suite, not
+against the live project. Rules tests must cover both allow and deny cases:
+a test proving an unauthorized role is denied is as important as one
+proving an authorized role is permitted.
+
+Tests must never call live social platform APIs. Provider adapters are
+exercised through mock mode (§21).
 
 Critical workflows should receive end-to-end testing where practical.
 
@@ -2115,12 +2309,14 @@ Build:
 
 Build:
 
-- template system
+- template system (Satori-compatible CSS subset only)
 - brand rendering
 - logo
-- typography
+- typography (explicit font data — no system font fallback)
 - colours
-- static image generation
+- static image generation via Satori → resvg → PNG
+- enforcement of the §14 image sourcing rule: brand templates and
+  company-owned Cloudinary assets only, never an article's own image
 - server-side signed upload to Cloudinary
 - storage of the returned public media URL (and Cloudinary public ID, so
   assets can later be deleted or replaced) on the platform post document
