@@ -62,6 +62,16 @@ export default defineConfig({
           // half reads FIREBASE_AUTH_EMULATOR_HOST from the inherited
           // environment on its own.
           NEXT_PUBLIC_FIREBASE_EMULATOR_HOST: "127.0.0.1",
+          /*
+           * Build somewhere else.
+           *
+           * NEXT_PUBLIC_* values are baked into the bundle, so this build is
+           * permanently wired to the emulator. Left in `.next`, the next plain
+           * `npm run start` would serve it against an emulator that is no
+           * longer running, and every sign-in would fail for a reason that
+           * looks nothing like the cause. Ask how I know.
+           */
+          NEXT_DIST_DIR: ".next-e2e",
         }
       : {},
   },
