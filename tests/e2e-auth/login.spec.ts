@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-import E2E_USER from "../fixtures/e2e-user.json";
+import fixture from "../fixtures/e2e-user.json";
+
+const E2E_USER = fixture.admin;
 
 /**
  * Credentialed login flow (spec §26, §58).

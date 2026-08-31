@@ -16,10 +16,11 @@ run what exists today.
 | −1 — Platform access spike | Complete ([notes](docs/module--1-platform-access-spike.md)) |
 | 00 — Foundation | Complete ([plan](docs/module-00-plan.md)) |
 | 01 — Authentication & Access Control | Complete ([plan](docs/module-01-plan.md)) |
-| 02 — Company & Brand Intelligence | Not started |
+| 02 — Company & Brand Intelligence | Complete ([plan](docs/module-02-plan.md)) |
+| 03 — News Source Management | Not started |
 
-The app now has login, roles and protected routes, and nothing else. No
-news, no content generation, no publishing.
+The app now has login, roles, protected routes and the central brand
+profile. No news, no content generation, no publishing.
 
 ## Stack
 
