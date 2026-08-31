@@ -7,6 +7,8 @@ const eslintConfig = [
   {
     ignores: [
       ".next/**",
+      // The credentialed e2e run builds here; see next.config.ts.
+      ".next-e2e/**",
       "node_modules/**",
       "coverage/**",
       "playwright-report/**",

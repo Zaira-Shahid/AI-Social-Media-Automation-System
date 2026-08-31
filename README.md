@@ -18,16 +18,23 @@ run what exists today.
 | 01 — Authentication & Access Control | Complete ([plan](docs/module-01-plan.md)) |
 | 02 — Company & Brand Intelligence | Complete ([plan](docs/module-02-plan.md)) |
 | 03 — News Source Management | Complete ([plan](docs/module-03-plan.md)) |
-| 04 — AI News Research & Ranking | Not started |
+| 04 — AI News Research & Ranking | Complete ([plan](docs/module-04-plan.md)) |
+| 05 — Slack News Notification | Not started |
 
 The app now has login, roles, protected routes, the central brand profile,
-and news discovery from configurable RSS sources. Nothing scores, selects or
-publishes yet.
+news discovery from configurable RSS sources, and AI ranking that produces a
+daily shortlist. Nothing generates content or publishes yet.
+
+**AI calls are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
+nothing reaches a paid or rate-limited service until it is set deliberately —
+and every simulated score is labelled as such in the UI and stored as `MOCK`
+(§21).
 
 ## Stack
 
 Next.js (App Router) · TypeScript (strict) · Tailwind CSS v4 · shadcn/ui ·
 Firebase (Firestore + Auth, Spark plan) · Cloudinary for media ·
+Groq for AI (free plan, behind a provider abstraction) ·
 Vitest · Playwright · Firebase Emulator Suite. Deployment target is the
 Render free tier (spec §28).
 
@@ -87,7 +94,7 @@ npm run verify           # typecheck + lint + format check + unit tests + build
 npm run test             # Vitest unit tests
 npm run test:rules       # Firestore rules tests against the emulator
 npm run test:e2e         # Playwright tests that need no credentials
-npm run test:e2e:auth    # full login flow against the emulators
+npm run test:e2e:auth    # full credentialed suite against the emulators (port 3100)
 npm run verify:services  # live credential check against Firestore + Cloudinary
 npm run emulators        # Firestore + Auth emulators
 npm run provision:user   # create or update an account (see below)
@@ -124,6 +131,27 @@ The **first** ADMIN has to be created this way, before anything is reachable.
 Firebase Authentication must be enabled in the console first (Authentication
 → Get started → Email/Password). Until it is, provisioning fails with
 `auth/configuration-not-found`, which does not say what is missing.
+
+## AI provider
+
+§30 forbids coupling to one provider, so everything goes through a small
+`AIProvider` interface with two adapters: Groq and a deterministic mock.
+
+Groq was chosen against §29's free-tier-first policy: its free plan needs no
+card and supports JSON-schema constrained decoding. Gemini's free tier was
+rejected because its own pricing page states free-tier content is used to
+improve Google's products, and the brand profile feeds these prompts.
+
+The free plan allows 8,000 tokens a minute, which is the binding constraint —
+ranking batches, truncates and paces itself accordingly.
+
+```dotenv
+AI_PROVIDER=groq
+GROQ_API_KEY=...      # console.groq.com
+```
+
+Leave `AI_PROVIDER` unset (or `mock`) to simulate. A missing key with
+`AI_PROVIDER=groq` fails loudly rather than falling back to simulated scores.
 
 ## Notes on two deliberate choices
 

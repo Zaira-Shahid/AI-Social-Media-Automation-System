@@ -81,3 +81,15 @@ test("the source screen is not reachable without a session", async ({ page }) =>
 
   await expect(page).toHaveURL(/\/login\?next=%2Fnews%2Fsources/);
 });
+
+test("the news screen is not reachable without a session", async ({ page }) => {
+  await page.goto("/news");
+
+  await expect(page).toHaveURL(/\/login\?next=%2Fnews/);
+});
+
+test("the ranking webhook rejects an unsigned request", async ({ request }) => {
+  const response = await request.post("/api/webhooks/news/rank", { data: { trigger: "daily" } });
+
+  expect(response.status()).toBe(401);
+});

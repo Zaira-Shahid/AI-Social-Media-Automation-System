@@ -58,7 +58,7 @@ async function seed({ email, password, role, displayName }) {
   console.log(`Seeded ${email} (${role}) in the emulator as ${user.uid}`);
 }
 
-for (const key of ["admin", "socialManager"]) {
+for (const key of ["admin", "socialManager", "signOutAdmin"]) {
   await seed(fixture[key]);
 }
 
@@ -75,5 +75,48 @@ for (const collection of ["companySettings", "brandSettings", "newsSources", "ne
 }
 
 console.log("Cleared brand and news documents");
+
+/*
+ * A handful of discovered stories, so the ranking spec has something to score.
+ * Published within the last few hours, because ranking rejects anything older
+ * than the acceptable window before it spends a token.
+ *
+ * No source document is created on purpose. The source list must stay empty
+ * for the sources spec's empty state, the discovery webhook must have nothing
+ * to fetch (§58 keeps tests off the network), and ranking falling back to a
+ * default priority for an unknown source is a path worth exercising.
+ */
+const now = Date.now();
+
+const stories = [
+  "Retailer replaces 500 support staff with AI agents",
+  "Bank deploys an AI agent across its call centre",
+  "Manufacturer cuts back-office roles after automation rollout",
+  "Startup launches an AI agent for logistics scheduling",
+  "Insurer reports productivity gains from AI triage",
+];
+
+await Promise.all(
+  stories.map((title, index) =>
+    db
+      .collection("newsItems")
+      .doc(`e2e-item-${index}`)
+      .set({
+        title,
+        summary: `${title}. Details reported by the outlet.`,
+        sourceName: "E2E Wire",
+        sourceId: "e2e-source",
+        sourceUrl: `https://example.test/story-${index}`,
+        publishedAt: new Date(now - (index + 1) * 60 * 60 * 1000).toISOString(),
+        retrievedAt: new Date(now).toISOString(),
+        category: "AI",
+        imageUrl: "",
+        duplicateGroup: `group-${index}`,
+        status: "DISCOVERED",
+      }),
+  ),
+);
+
+console.log(`Seeded 1 source and ${stories.length} discovered stories`);
 
 process.exit(0);

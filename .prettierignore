@@ -5,6 +5,7 @@ docs/
 
 # Generated / vendored
 .next/
+.next-e2e/
 node_modules/
 package-lock.json
 coverage/

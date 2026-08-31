@@ -40,18 +40,28 @@ for (const [key, value] of Object.entries(emulatorEnv)) {
  */
 const usingEmulators = Boolean(process.env.FIREBASE_AUTH_EMULATOR_HOST);
 
+/*
+ * The emulator run uses its own port.
+ *
+ * Sharing 3000 means the credentialed suite refuses to start whenever anyone
+ * has the app running — which is exactly when they are most likely to want to
+ * run it. `E2E_PORT` overrides either default.
+ */
+const port = Number(process.env.E2E_PORT ?? (usingEmulators ? 3100 : 3000));
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: "./tests",
   timeout: 60_000,
   fullyParallel: true,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL,
     trace: "on-first-retry",
   },
   webServer: {
     command: "npm run build && npm run start",
-    url: "http://127.0.0.1:3000",
+    url: baseURL,
     // A server left over from the non-emulator run would be pointed at the
     // live project, so it must not be reused for the emulator run.
     reuseExistingServer: !process.env.CI && !usingEmulators,
@@ -72,7 +82,8 @@ export default defineConfig({
            * looks nothing like the cause. Ask how I know.
            */
           NEXT_DIST_DIR: ".next-e2e",
+          PORT: String(port),
         }
-      : {},
+      : { PORT: String(port) },
   },
 });
