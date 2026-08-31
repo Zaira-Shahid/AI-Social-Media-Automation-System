@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 
+import { EnvironmentBanner } from "@/components/environment-banner";
 import { cn } from "@/lib/utils";
 
 import "./globals.css";
@@ -22,7 +23,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
-      <body>{children}</body>
+      <body>
+        <EnvironmentBanner />
+        {children}
+      </body>
     </html>
   );
 }
