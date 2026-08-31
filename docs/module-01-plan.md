@@ -266,17 +266,39 @@ reads of `profiles`, `auditLogs` and an arbitrary collection were each
 confirmed to return `PERMISSION_DENIED` against the deployed rules rather
 than only against the emulator.
 
-### Remaining owner action
+### Firebase Authentication — RESOLVED 2026-08-31
 
-**Firebase Authentication has never been initialized in this project.**
-Provisioning the first ADMIN fails with `auth/configuration-not-found`.
+Provisioning the first ADMIN initially failed with
+`auth/configuration-not-found`: Firebase Authentication had never been
+initialized in the project. The owner enabled it from the console
+(Authentication → Get started → Email/Password).
 
-Enable it from the Firebase console — Authentication → Get started →
-Email/Password → Enable. Deliberately not done through the Identity Toolkit
-API, because that route can move the project onto Identity Platform, a
-separate product with its own pricing, while the console button enables
-plain Firebase Auth as §26 and §29 intend.
+This was left to the console on purpose rather than done through the
+Identity Toolkit API, because that route can move a project onto Identity
+Platform — a separate product with its own pricing — while the console
+button enables plain Firebase Auth, which is what §26 and §29 intend.
+
+### Live verification against the real project
+
+The first ADMIN was then provisioned, and the whole chain was exercised
+against the live project rather than trusted from the script's own output:
+
+| Check | Result |
+|---|---|
+| Auth record | `customClaims {"role":"ADMIN"}`, provider `password`, not disabled |
+| `profiles/{uid}` | exists, `role: ADMIN`, `status: ACTIVE`, both timestamps set |
+| Accounts in project | exactly one |
+| `signInWithPassword` | succeeds, returns the expected uid |
+| `POST /api/auth/session` | `200`, `{"uid":…,"role":"ADMIN"}` |
+| Session cookie | `Secure; HttpOnly; SameSite=lax; Max-Age=432000` |
+| `GET /` with the cookie | `200`, no redirect, renders "Admin" and the full ADMIN permission list |
+| `auditLogs` | one `LOGIN` / `SUCCESS` entry for that uid |
+| `DELETE /api/auth/session` then `GET /` | redirected back to `/login` |
+| `_healthcheck` | no leftover documents |
+
+Module 01 is therefore verified end to end against production, not only
+against the emulators.
 
 ### Next
 
-Module 02 — Company & Brand Intelligence.
+Module 02 — Company & Brand Intelligence. Nothing blocks it.

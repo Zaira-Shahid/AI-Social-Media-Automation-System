@@ -117,6 +117,10 @@ npm run provision:user -- --email someone@company.com --disable
 
 The **first** ADMIN has to be created this way, before anything is reachable.
 
+Firebase Authentication must be enabled in the console first (Authentication
+→ Get started → Email/Password). Until it is, provisioning fails with
+`auth/configuration-not-found`, which does not say what is missing.
+
 ## Notes on two deliberate choices
 
 **Firestore rules start closed.** `firestore.rules` denies every read and
