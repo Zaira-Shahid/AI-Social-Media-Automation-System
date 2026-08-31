@@ -28,6 +28,18 @@ const serverEnvSchema = z.object({
       "FIREBASE_ADMIN_PRIVATE_KEY does not look like a PEM private key",
     ),
 
+  /*
+   * Firestore database ID.
+   *
+   * Almost always "(default)" — with the parentheses, which are part of the
+   * literal name Google gives the first database in a project. Multi-database
+   * Firestore also allows arbitrary IDs, and a database created with an
+   * explicit name (say "default", without parentheses) is a *different*
+   * database. Targeting the wrong one fails as a bare `5 NOT_FOUND` with no
+   * indication of which name was tried, so the value is explicit here.
+   */
+  FIREBASE_DATABASE_ID: z.string().min(1).default("(default)"),
+
   CLOUDINARY_CLOUD_NAME: z.string().min(1, "CLOUDINARY_CLOUD_NAME is required"),
   CLOUDINARY_API_KEY: z.string().min(1, "CLOUDINARY_API_KEY is required"),
   CLOUDINARY_API_SECRET: z.string().min(1, "CLOUDINARY_API_SECRET is required"),

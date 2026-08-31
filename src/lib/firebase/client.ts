@@ -41,7 +41,7 @@ let authInstance: Auth | undefined;
 export function getClientFirestore(): Firestore {
   if (firestoreInstance) return firestoreInstance;
 
-  firestoreInstance = getFirestore(getClientApp());
+  firestoreInstance = getFirestore(getClientApp(), getClientEnv().NEXT_PUBLIC_FIREBASE_DATABASE_ID);
 
   // Connecting twice throws, hence the cached instances above.
   if (EMULATOR_HOST) connectFirestoreEmulator(firestoreInstance, EMULATOR_HOST, 8080);

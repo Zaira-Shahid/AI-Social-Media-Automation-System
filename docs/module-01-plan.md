@@ -220,13 +220,33 @@ page, signs out, and confirms the session is dead server-side afterwards.
 - **Audit.** `LOGIN` is recorded on sign-in and sign-out (§55). A failed
   audit write never fails the action it was recording.
 
-### Carried blocker
+### Carried blocker — RESOLVED 2026-08-31
 
-The cloud Firestore database still does not exist, so
-`npm run verify:services` continues to fail on Firestore while passing on
-Cloudinary. Everything above was verified against the emulators. Until the
-owner creates the database, the first real ADMIN cannot be provisioned and
-nobody can sign in to a deployed instance.
+The cloud Firestore database was created, and `npm run verify:services` then
+failed with a bare `5 NOT_FOUND`. Cause: the database's literal ID is
+`default`, while the Admin SDK targets `(default)` — parentheses included —
+unless told otherwise. Two different databases, and the error names neither.
+
+Confirmed with the CLI rather than the console UI, which displays the name
+without making the distinction visible:
+
+```text
+$ firebase firestore:databases:list --project ai-social-media-system
+projects/ai-social-media-system/databases/default   ENTERPRISE   FIRESTORE_NATIVE
+```
+
+Fixed by making the database ID explicit configuration —
+`FIREBASE_DATABASE_ID` and `NEXT_PUBLIC_FIREBASE_DATABASE_ID`, both
+defaulting to `(default)` — threaded through the Admin SDK, the client SDK,
+all three scripts, and `firebase.json`. Hardcoding `default` would have been
+shorter and wrong: it is this project's accident, not the norm.
+
+`npm run verify:services` now passes on both Firestore and Cloudinary.
+
+Two properties of that database are worth revisiting separately, neither
+blocking: it is **Enterprise** edition (a different pricing model from the
+Standard edition §29 assumes, though Security Rules are supported) and it
+sits in **africa-south1**, which is a poor region for an Asia/Karachi team.
 
 ### Next
 
