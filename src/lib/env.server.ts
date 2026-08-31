@@ -40,6 +40,15 @@ const serverEnvSchema = z.object({
     .string()
     .regex(/^[0-9a-f]{64}$/i, "TOKEN_ENCRYPTION_KEY must be 64 hex characters (32 bytes)"),
 
+  // Firebase Auth session cookie lifetime (§26). Firebase supports 5 minutes
+  // to 14 days; anything outside that is rejected by the Admin SDK at
+  // runtime, so the bound is enforced here where the message is useful.
+  SESSION_COOKIE_MAX_AGE_DAYS: z.coerce
+    .number()
+    .min(1 / 288, "SESSION_COOKIE_MAX_AGE_DAYS must be at least 5 minutes (0.0035 days)")
+    .max(14, "SESSION_COOKIE_MAX_AGE_DAYS must be at most 14 days")
+    .default(5),
+
   // Placeholder until Module 03 introduces signed n8n webhooks (§44).
   N8N_WEBHOOK_SECRET: z.string().min(1, "N8N_WEBHOOK_SECRET is required"),
 });

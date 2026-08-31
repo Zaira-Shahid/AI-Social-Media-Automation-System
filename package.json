@@ -16,10 +16,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\"",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test tests/e2e",
     "emulators": "firebase emulators:start --only firestore,auth",
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build",
-    "verify:services": "node --env-file=.env.local scripts/verify-services.mjs"
+    "verify:services": "node --env-file=.env.local scripts/verify-services.mjs",
+    "provision:user": "node --env-file=.env.local scripts/provision-user.mjs",
+    "test:e2e:auth": "firebase emulators:exec --only auth,firestore \"npm run e2e:auth\"",
+    "e2e:auth": "node --env-file=.env.local scripts/seed-e2e-user.mjs && playwright test tests/e2e-auth"
   },
   "repository": {
     "type": "git",

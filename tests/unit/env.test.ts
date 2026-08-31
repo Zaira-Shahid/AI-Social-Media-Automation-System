@@ -74,6 +74,34 @@ describe("server env validation", () => {
     expect(() => getServerEnv()).toThrow(/FIREBASE_ADMIN_PRIVATE_KEY/);
   });
 
+  it("defaults the session cookie lifetime when it is not set", async () => {
+    delete process.env.SESSION_COOKIE_MAX_AGE_DAYS;
+
+    const { getServerEnv } = await loadEnv();
+    expect(getServerEnv().SESSION_COOKIE_MAX_AGE_DAYS).toBe(5);
+  });
+
+  it("accepts a session cookie lifetime inside Firebase's supported range", async () => {
+    process.env.SESSION_COOKIE_MAX_AGE_DAYS = "14";
+
+    const { getServerEnv } = await loadEnv();
+    expect(getServerEnv().SESSION_COOKIE_MAX_AGE_DAYS).toBe(14);
+  });
+
+  it("rejects a session cookie lifetime beyond Firebase's 14-day maximum", async () => {
+    process.env.SESSION_COOKIE_MAX_AGE_DAYS = "30";
+
+    const { getServerEnv } = await loadEnv();
+    expect(() => getServerEnv()).toThrow(/SESSION_COOKIE_MAX_AGE_DAYS/);
+  });
+
+  it("rejects a session cookie lifetime under Firebase's 5-minute minimum", async () => {
+    process.env.SESSION_COOKIE_MAX_AGE_DAYS = "0.001";
+
+    const { getServerEnv } = await loadEnv();
+    expect(() => getServerEnv()).toThrow(/SESSION_COOKIE_MAX_AGE_DAYS/);
+  });
+
   it("does not include secret values in the error message", async () => {
     process.env.TOKEN_ENCRYPTION_KEY = "invalid-but-secret-looking-value";
 

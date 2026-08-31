@@ -1,0 +1,14 @@
+# Check out with LF on every platform.
+#
+# Without this, Git's autocrlf converts files to CRLF on Windows checkout and
+# Prettier's format check then fails on files nobody edited — which is
+# confusing and wastes a build.
+* text=auto eol=lf
+
+# Binary and generated files Git should not touch.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+package-lock.json -diff

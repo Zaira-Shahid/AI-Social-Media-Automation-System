@@ -1,6 +1,6 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
+import { connectFirestoreEmulator, getFirestore, type Firestore } from "firebase/firestore";
 
 import { getClientEnv } from "@/lib/env.client";
 
@@ -26,12 +26,39 @@ function getClientApp(): FirebaseApp {
   });
 }
 
+/**
+ * Emulator host for local development and end-to-end tests.
+ *
+ * Unset in every deployed environment. §58 keeps tests off live services,
+ * and an authentication test in particular has no business creating users in
+ * the real project.
+ */
+const EMULATOR_HOST = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_HOST;
+
+let firestoreInstance: Firestore | undefined;
+let authInstance: Auth | undefined;
+
 export function getClientFirestore(): Firestore {
-  return getFirestore(getClientApp());
+  if (firestoreInstance) return firestoreInstance;
+
+  firestoreInstance = getFirestore(getClientApp());
+
+  // Connecting twice throws, hence the cached instances above.
+  if (EMULATOR_HOST) connectFirestoreEmulator(firestoreInstance, EMULATOR_HOST, 8080);
+
+  return firestoreInstance;
 }
 
 export function getClientAuth(): Auth {
-  return getAuth(getClientApp());
+  if (authInstance) return authInstance;
+
+  authInstance = getAuth(getClientApp());
+
+  if (EMULATOR_HOST) {
+    connectAuthEmulator(authInstance, `http://${EMULATOR_HOST}:9099`, { disableWarnings: true });
+  }
+
+  return authInstance;
 }
 
 export { getClientApp };
