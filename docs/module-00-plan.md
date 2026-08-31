@@ -1,8 +1,9 @@
 # Module 00 — Foundation: Implementation Plan
 
-**Status:** Plan only (§64 Steps 1–3 complete). **Not implemented.**
+**Status:** Implemented (§64 Steps 1–9 complete). Verified 2026-08-31.
 **Branch:** `feature/module-00-foundation`
-**Blocked on:** Firebase + Cloudinary credentials from the owner.
+**Outstanding owner action:** create the Firestore database in the Firebase
+console — see "Implementation record" at the end of this document.
 
 ---
 
@@ -236,4 +237,70 @@ Documentation updated
 
 ---
 
-**STOP.** Awaiting credentials before Step 4 (Implement).
+---
+
+## Implementation record (§64 Steps 4–9)
+
+Credentials were supplied and the module was built as planned. Deviations
+and findings are recorded below; everything else matches Step 3.
+
+### Deviations from the plan
+
+| Plan | What shipped | Why |
+|---|---|---|
+| 3.1 shadcn/ui initialized | `components.json` + `src/components/ui/button.tsx`, base-nova style, neutral base | `shadcn init` owns `globals.css`, so the hand-written `@theme` palette written earlier was removed and the shell switched to shadcn tokens (`border-border`, `text-muted-foreground`). Keeping both would have left two conflicting definitions of the same variables. |
+| 3.4 Firestore connectivity check | `scripts/verify-services.mjs`, run via `npm run verify:services` | Kept out of `npm run verify`. The quality gate (§59) must run offline and without credentials; a live dependency check does neither. The script is standalone plain JS because the app's Firebase and Cloudinary helpers are `server-only` and cannot be imported from a Node script. |
+
+### Verification (§59)
+
+| Gate | Result |
+|---|---|
+| Type check (`tsc --noEmit`) | pass |
+| Lint (`eslint .`) | pass |
+| Format check (`prettier --check .`) | pass |
+| Vitest | pass — 12 tests, 2 files |
+| Playwright smoke | pass — 2 tests |
+| Emulator rules test (default-deny) | pass — 5 tests |
+| Production build (`next build`) | pass — `/`, `/_not-found`, `/api/health` |
+| No secret committed | verified — no env, service-account, `.pem` or `.key` file appears anywhere in git history |
+
+### Live credential check (`npm run verify:services`)
+
+| Service | Result |
+|---|---|
+| Cloudinary — credentials ping | **PASS** |
+| Firestore — Admin SDK write/read/delete on `_healthcheck/module-00` | **FAIL** |
+
+Firestore returned `7 PERMISSION_DENIED: Cloud Firestore API has not been
+used in project ai-social-media-system before or it is disabled.`
+
+This is a console setup gap, not a code fault: the Firebase project exists
+and the service-account credentials authenticate, but **no Firestore
+database has been created in it**. The Firestore API stays disabled until
+one is.
+
+**Owner action:** in the Firebase console for `ai-social-media-system`,
+create a Firestore database (Spark plan, production mode — the committed
+rules are default-deny, so mode choice is not load-bearing), then re-run
+`npm run verify:services`. Both lines must read PASS before Module 01
+starts, since authentication writes user documents.
+
+This does not block the rest of Module 00: rules are verified against the
+emulator, which needs no cloud database.
+
+### Security review (§64 Step 7)
+
+- Admin SDK and Cloudinary modules are marked `server-only`; importing
+  either from client code is a build error.
+- Env parsing is split into two schemas. The server schema is never reachable
+  from the client bundle.
+- Failed env validation reports which keys are wrong, never their values.
+- Firestore rules deny everything; the deny path is covered by a test.
+- `/api/health` is unauthenticated and therefore returns `{ status: "ok" }`
+  and nothing else — no version, config or dependency state.
+- Git history contains no credential-shaped file.
+
+### Next
+
+Module 01 — Authentication & Access Control. Do not begin before the
+Firestore database exists.
