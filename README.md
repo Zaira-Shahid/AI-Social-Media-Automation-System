@@ -17,10 +17,12 @@ run what exists today.
 | 00 — Foundation | Complete ([plan](docs/module-00-plan.md)) |
 | 01 — Authentication & Access Control | Complete ([plan](docs/module-01-plan.md)) |
 | 02 — Company & Brand Intelligence | Complete ([plan](docs/module-02-plan.md)) |
-| 03 — News Source Management | Not started |
+| 03 — News Source Management | Complete ([plan](docs/module-03-plan.md)) |
+| 04 — AI News Research & Ranking | Not started |
 
-The app now has login, roles, protected routes and the central brand
-profile. No news, no content generation, no publishing.
+The app now has login, roles, protected routes, the central brand profile,
+and news discovery from configurable RSS sources. Nothing scores, selects or
+publishes yet.
 
 ## Stack
 
@@ -89,6 +91,7 @@ npm run test:e2e:auth    # full login flow against the emulators
 npm run verify:services  # live credential check against Firestore + Cloudinary
 npm run emulators        # Firestore + Auth emulators
 npm run provision:user   # create or update an account (see below)
+npm run seed:sources     # add the verified news feeds (optional)
 ```
 
 `npm run verify` is the offline quality gate (§59) — it needs no credentials

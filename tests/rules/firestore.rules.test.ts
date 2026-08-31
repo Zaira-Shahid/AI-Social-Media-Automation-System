@@ -41,19 +41,25 @@ beforeEach(async () => {
 });
 
 describe("firestore.rules baseline", () => {
+  /*
+   * These use `contentItems`, a collection no module has opened yet, so the
+   * baseline keeps testing the wildcard itself. They originally used
+   * `newsItems`, which stopped being a baseline test the moment Module 03
+   * opened that collection to signed-in reads.
+   */
   it("denies reads to an unauthenticated client", async () => {
     const db = testEnv.unauthenticatedContext().firestore();
-    await assertFails(getDoc(doc(db, "newsItems/any-id")));
+    await assertFails(getDoc(doc(db, "contentItems/any-id")));
   });
 
   it("denies writes from an unauthenticated client", async () => {
     const db = testEnv.unauthenticatedContext().firestore();
-    await assertFails(setDoc(doc(db, "newsItems/any-id"), { title: "nope" }));
+    await assertFails(setDoc(doc(db, "contentItems/any-id"), { title: "nope" }));
   });
 
-  it("denies reads even to an authenticated client, since nothing is opened yet", async () => {
+  it("denies reads of an unopened collection even to an authenticated client", async () => {
     const db = testEnv.authenticatedContext("user-1").firestore();
-    await assertFails(getDoc(doc(db, "newsItems/any-id")));
+    await assertFails(getDoc(doc(db, "contentItems/any-id")));
   });
 
   it("denies writes to platform posts, which are server-only", async () => {
@@ -175,5 +181,51 @@ describe("brand profile rules", () => {
   it("denies reading a sibling document that no rule opens", async () => {
     const db = testEnv.authenticatedContext("user-1", { role: "ADMIN" }).firestore();
     await assertFails(getDoc(doc(db, "brandTemplates/default")));
+  });
+});
+
+describe("news rules", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, "newsSources/src-1"), { name: "TechCrunch AI", active: true });
+      await setDoc(doc(db, "newsItems/item-1"), { title: "A story", status: "DISCOVERED" });
+      await setDoc(doc(db, "automationRuns/run-1"), { workflow: "01_daily_news_discovery" });
+    });
+  });
+
+  it("lets any signed-in user read sources and items", async () => {
+    const db = testEnv.authenticatedContext("user-1", { role: "SOCIAL_MANAGER" }).firestore();
+
+    await assertSucceeds(getDoc(doc(db, "newsSources/src-1")));
+    await assertSucceeds(getDoc(doc(db, "newsItems/item-1")));
+  });
+
+  it("denies an unauthenticated read of sources and items", async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+
+    await assertFails(getDoc(doc(db, "newsSources/src-1")));
+    await assertFails(getDoc(doc(db, "newsItems/item-1")));
+  });
+
+  it("denies a client writing a source, even an ADMIN", async () => {
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+
+    await assertFails(setDoc(doc(db, "newsSources/src-1"), { name: "Injected", active: true }));
+    await assertFails(setDoc(doc(db, "newsSources/src-2"), { name: "New", active: true }));
+  });
+
+  it("denies a client writing an item status, which §33 keeps server-side", async () => {
+    for (const role of ["ADMIN", "MANAGER", "SOCIAL_MANAGER"]) {
+      const db = testEnv.authenticatedContext(`user-${role}`, { role }).firestore();
+      await assertFails(setDoc(doc(db, "newsItems/item-1"), { status: "SHORTLISTED" }));
+    }
+  });
+
+  it("denies every client access to automation runs, in both directions", async () => {
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+
+    await assertFails(getDoc(doc(db, "automationRuns/run-1")));
+    await assertFails(setDoc(doc(db, "automationRuns/run-2"), { workflow: "forged" }));
   });
 });

@@ -57,3 +57,27 @@ test("the brand screen is not reachable without a session", async ({ page }) => 
 
   await expect(page).toHaveURL(/\/login\?next=%2Fbrand/);
 });
+
+test("the news ingestion webhook rejects an unsigned request", async ({ request }) => {
+  const response = await request.post("/api/webhooks/news/ingest", { data: { trigger: "daily" } });
+
+  expect(response.status()).toBe(401);
+});
+
+test("the news ingestion webhook rejects a plausible but wrong signature", async ({ request }) => {
+  const response = await request.post("/api/webhooks/news/ingest", {
+    data: { trigger: "daily" },
+    headers: {
+      "x-timestamp": String(Date.now()),
+      "x-signature": "a".repeat(64),
+    },
+  });
+
+  expect(response.status()).toBe(401);
+});
+
+test("the source screen is not reachable without a session", async ({ page }) => {
+  await page.goto("/news/sources");
+
+  await expect(page).toHaveURL(/\/login\?next=%2Fnews%2Fsources/);
+});
