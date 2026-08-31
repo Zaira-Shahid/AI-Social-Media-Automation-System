@@ -243,10 +243,39 @@ shorter and wrong: it is this project's accident, not the norm.
 
 `npm run verify:services` now passes on both Firestore and Cloudinary.
 
-Two properties of that database are worth revisiting separately, neither
-blocking: it is **Enterprise** edition (a different pricing model from the
-Standard edition §29 assumes, though Security Rules are supported) and it
-sits in **africa-south1**, which is a poor region for an Asia/Karachi team.
+That first database was also **Enterprise** edition in **africa-south1** —
+a different pricing model from the Standard edition §29 assumes, and a poor
+region for an Asia/Karachi team. Neither can be changed after creation, so
+it was deleted and recreated via the CLI while still empty:
+
+```bash
+firebase firestore:databases:create "(default)"   --location=asia-south1 --edition=standard --project=ai-social-media-system
+```
+
+The result is `(default)` / `asia-south1` / `STANDARD` / `FIRESTORE_NATIVE`,
+confirmed with `firestore:databases:get`. Both database-ID overrides were
+removed from `.env.local` and `firebase.json` returned to `(default)`; the
+configuration added above stays, since defaulting to `(default)` is now
+simply correct and the next project may not be.
+
+Note for anyone repeating this: a deleted database ID cannot be reused for
+several minutes, and the console reports that as a bare retry countdown.
+
+`firestore.rules` was then deployed to the live project, and unauthenticated
+reads of `profiles`, `auditLogs` and an arbitrary collection were each
+confirmed to return `PERMISSION_DENIED` against the deployed rules rather
+than only against the emulator.
+
+### Remaining owner action
+
+**Firebase Authentication has never been initialized in this project.**
+Provisioning the first ADMIN fails with `auth/configuration-not-found`.
+
+Enable it from the Firebase console — Authentication → Get started →
+Email/Password → Enable. Deliberately not done through the Identity Toolkit
+API, because that route can move the project onto Identity Platform, a
+separate product with its own pricing, while the console button enables
+plain Firebase Auth as §26 and §29 intend.
 
 ### Next
 
