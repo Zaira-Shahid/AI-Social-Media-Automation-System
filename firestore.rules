@@ -21,6 +21,35 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function hasRole(role) {
+      return signedIn() && request.auth.token.role == role;
+    }
+
+    // Profiles (§32). Read-only to clients, and only ever the owner's own
+    // document or an ADMIN's view of anyone's.
+    //
+    // No client write at any role, ADMIN included. `role` and `status` live
+    // on this document, so a writable profile would let a user promote
+    // themselves — or re-enable their own disabled account. Provisioning goes
+    // through the Admin SDK (§26).
+    match /profiles/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || hasRole('ADMIN'));
+      allow write: if false;
+    }
+
+    // Audit logs (§55) are server-only. Denied outright, including reads: an
+    // audit trail a client can read is a map of who did what, and one a
+    // client can write is not evidence of anything (§33).
+    match /auditLogs/{entry} {
+      allow read, write: if false;
+    }
+
+    // Everything else stays closed. Later modules open collections
+    // explicitly; nothing is granted by a broad wildcard (§33).
     match /{document=**} {
       allow read, write: if false;
     }

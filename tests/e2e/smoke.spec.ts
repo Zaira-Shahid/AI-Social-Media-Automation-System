@@ -1,23 +1,53 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Module 00 smoke test (spec §58): the shell renders and the keep-warm
- * health endpoint responds. Nothing feature-specific exists yet.
+ * Smoke tests (spec §58). No credentials involved — these cover what an
+ * unauthenticated visitor sees. The credentialed login flow lives in
+ * `tests/e2e-auth`, which runs against the emulators.
  */
-test("application shell renders", async ({ page }) => {
+test("an unauthenticated visitor is redirected to login", async ({ page }) => {
   await page.goto("/");
 
+  await expect(page).toHaveURL(/\/login/);
   await expect(page.getByRole("heading", { name: "AI Social Media Command Center" })).toBeVisible();
-
-  // Navigation from §34 is present but inert in this module.
-  await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
-  await expect(page.getByText("Dashboard")).toBeVisible();
-  await expect(page.getByText("Social Accounts")).toBeVisible();
+  await expect(page.getByLabel("Email")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 });
 
-test("health endpoint returns ok for the keep-warm ping", async ({ request }) => {
+test("the requested path is carried through the redirect", async ({ page }) => {
+  await page.goto("/analytics");
+
+  await expect(page).toHaveURL(/\/login\?next=%2Fanalytics/);
+});
+
+test("no signup route is exposed", async ({ page }) => {
+  await page.goto("/login");
+
+  await expect(page.getByText(/no self-signup/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: /sign up|create account|register/i })).toHaveCount(0);
+});
+
+test("the application shell is not rendered to a signed-out visitor", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(0);
+});
+
+test("health endpoint stays public for the keep-warm ping", async ({ request }) => {
   const response = await request.get("/api/health");
 
   expect(response.status()).toBe(200);
   expect(await response.json()).toEqual({ status: "ok" });
+});
+
+test("the session endpoint rejects a request with no token", async ({ request }) => {
+  const response = await request.post("/api/auth/session", { data: {} });
+
+  expect(response.status()).toBe(400);
+});
+
+test("the session endpoint rejects a forged token", async ({ request }) => {
+  const response = await request.post("/api/auth/session", { data: { idToken: "not-a-token" } });
+
+  expect(response.status()).toBe(401);
 });

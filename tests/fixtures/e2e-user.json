@@ -1,0 +1,6 @@
+{
+  "_comment": "The account the credentialed e2e run signs in as. Emulator-only: it is seeded by scripts/seed-e2e-user.mjs into the Auth emulator's in-memory state, which is why a literal password here is not a secret. JSON so the seed script and the Playwright spec read the same file and cannot drift apart.",
+  "email": "e2e-admin@example.test",
+  "password": "e2e-password-not-a-secret",
+  "role": "ADMIN"
+}
