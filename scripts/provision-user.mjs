@@ -3,6 +3,7 @@
  *
  *   npm run provision:user -- --email a@b.com --role ADMIN --name "Full Name"
  *   npm run provision:user -- --email a@b.com --role MANAGER --password "..."
+ *   npm run provision:user -- --email a@b.com --reset-password
  *   npm run provision:user -- --email a@b.com --disable
  *
  * Accounts exist only because an administrator ran this. There is no signup
@@ -35,6 +36,7 @@ const { values } = parseArgs({
     password: { type: "string" },
     disable: { type: "boolean", default: false },
     enable: { type: "boolean", default: false },
+    "reset-password": { type: "boolean", default: false },
   },
 });
 
@@ -101,7 +103,21 @@ async function findOrCreate(email) {
 
 const { user, created, generatedPassword } = await findOrCreate(values.email);
 
-if (!created && values.password) {
+/*
+ * A fresh temporary password for an existing account.
+ *
+ * The self-service reset email is the normal route; this exists for when that
+ * route is broken or the mailbox is unreachable, and for getting an
+ * administrator back in without waiting on email delivery.
+ */
+let resetPassword = null;
+
+if (!created && values["reset-password"]) {
+  resetPassword = values.password ?? randomBytes(18).toString("base64url");
+  await auth.updateUser(user.uid, { password: resetPassword });
+  // Existing sessions must not survive a password reset.
+  await auth.revokeRefreshTokens(user.uid);
+} else if (!created && values.password) {
   await auth.updateUser(user.uid, { password: values.password });
 }
 
@@ -155,10 +171,12 @@ console.log(`  uid:    ${user.uid}`);
 console.log(`  role:   ${role ?? "(none)"}`);
 console.log(`  status: ${disabled ? "DISABLED" : "ACTIVE"}`);
 
-if (generatedPassword) {
+const shownPassword = generatedPassword ?? resetPassword;
+
+if (shownPassword) {
   console.log("");
-  console.log(`  Temporary password: ${generatedPassword}`);
-  console.log("  Shown once. Have the user sign in and reset it immediately.");
+  console.log(`  Temporary password: ${shownPassword}`);
+  console.log("  Shown once. Sign in and change it immediately.");
 }
 
 process.exit(0);
