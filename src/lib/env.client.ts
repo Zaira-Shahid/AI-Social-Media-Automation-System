@@ -21,6 +21,13 @@ const clientEnvSchema = z.object({
     .string()
     .min(1, "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID is required"),
   NEXT_PUBLIC_FIREBASE_APP_ID: z.string().min(1, "NEXT_PUBLIC_FIREBASE_APP_ID is required"),
+
+  /*
+   * Firestore database ID. See the note in env.server.ts — "(default)" is a
+   * literal name including its parentheses, and a database created as
+   * "default" is a different database entirely.
+   */
+  NEXT_PUBLIC_FIREBASE_DATABASE_ID: z.string().min(1).default("(default)"),
 });
 
 export type ClientEnv = z.infer<typeof clientEnvSchema>;
@@ -37,6 +44,7 @@ export function getClientEnv(): ClientEnv {
     NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    NEXT_PUBLIC_FIREBASE_DATABASE_ID: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_ID,
   });
 
   if (!parsed.success) {

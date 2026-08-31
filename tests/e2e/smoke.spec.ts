@@ -51,3 +51,9 @@ test("the session endpoint rejects a forged token", async ({ request }) => {
 
   expect(response.status()).toBe(401);
 });
+
+test("the brand screen is not reachable without a session", async ({ page }) => {
+  await page.goto("/brand");
+
+  await expect(page).toHaveURL(/\/login\?next=%2Fbrand/);
+});

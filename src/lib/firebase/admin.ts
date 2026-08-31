@@ -41,7 +41,7 @@ function getAdminApp(): App {
 }
 
 export function getAdminFirestore(): Firestore {
-  return getFirestore(getAdminApp());
+  return getFirestore(getAdminApp(), getServerEnv().FIREBASE_DATABASE_ID);
 }
 
 export function getAdminAuth(): Auth {

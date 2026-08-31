@@ -16,10 +16,11 @@ run what exists today.
 | −1 — Platform access spike | Complete ([notes](docs/module--1-platform-access-spike.md)) |
 | 00 — Foundation | Complete ([plan](docs/module-00-plan.md)) |
 | 01 — Authentication & Access Control | Complete ([plan](docs/module-01-plan.md)) |
-| 02 — Company & Brand Intelligence | Not started |
+| 02 — Company & Brand Intelligence | Complete ([plan](docs/module-02-plan.md)) |
+| 03 — News Source Management | Not started |
 
-The app now has login, roles and protected routes, and nothing else. No
-news, no content generation, no publishing.
+The app now has login, roles, protected routes and the central brand
+profile. No news, no content generation, no publishing.
 
 ## Stack
 
@@ -52,6 +53,29 @@ Before `npm run verify:services` can pass, the Firestore database must be
 created in the Firebase console for the project named in
 `FIREBASE_ADMIN_PROJECT_ID`. Creating the project alone is not enough — the
 Firestore API stays disabled until a database exists.
+
+**Then check the database's ID**, because it is not always what it looks
+like:
+
+```bash
+firebase firestore:databases:list --project <project-id>
+```
+
+A project's first database is normally called `(default)` — parentheses
+included, they are part of the literal name. Multi-database Firestore also
+allows plain IDs, so a database can end up called `default` without them,
+and that is a *different* database. Pointing at the wrong one fails as a
+bare `5 NOT_FOUND` that names neither the database it tried nor the one that
+exists.
+
+If the ID is anything other than `(default)`, set both halves — they must
+match, and `firebase.json`'s `database` field must match too or rules deploy
+to a database that is not there:
+
+```dotenv
+FIREBASE_DATABASE_ID=default
+NEXT_PUBLIC_FIREBASE_DATABASE_ID=default
+```
 
 ## Commands
 
@@ -93,6 +117,10 @@ npm run provision:user -- --email someone@company.com --disable
 ```
 
 The **first** ADMIN has to be created this way, before anything is reachable.
+
+Firebase Authentication must be enabled in the console first (Authentication
+→ Get started → Email/Password). Until it is, provisioning fails with
+`auth/configuration-not-found`, which does not say what is missing.
 
 ## Notes on two deliberate choices
 

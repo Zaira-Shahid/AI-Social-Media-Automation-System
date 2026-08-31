@@ -41,6 +41,22 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Brand profile (§11). Readable by any signed-in user, because previews
+    // and generation UI in later modules all need the brand identity.
+    //
+    // No client write at any role, ADMIN included. Writes go through the
+    // server action, which is where the §31 validation lives — a client
+    // write would bypass it and store a brand the renderer cannot use.
+    match /companySettings/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /brandSettings/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     // Audit logs (§55) are server-only. Denied outright, including reads: an
     // audit trail a client can read is a map of who did what, and one a
     // client can write is not evidence of anything (§33).

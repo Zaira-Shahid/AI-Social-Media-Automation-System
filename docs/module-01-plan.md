@@ -220,14 +220,85 @@ page, signs out, and confirms the session is dead server-side afterwards.
 - **Audit.** `LOGIN` is recorded on sign-in and sign-out (§55). A failed
   audit write never fails the action it was recording.
 
-### Carried blocker
+### Carried blocker — RESOLVED 2026-08-31
 
-The cloud Firestore database still does not exist, so
-`npm run verify:services` continues to fail on Firestore while passing on
-Cloudinary. Everything above was verified against the emulators. Until the
-owner creates the database, the first real ADMIN cannot be provisioned and
-nobody can sign in to a deployed instance.
+The cloud Firestore database was created, and `npm run verify:services` then
+failed with a bare `5 NOT_FOUND`. Cause: the database's literal ID is
+`default`, while the Admin SDK targets `(default)` — parentheses included —
+unless told otherwise. Two different databases, and the error names neither.
+
+Confirmed with the CLI rather than the console UI, which displays the name
+without making the distinction visible:
+
+```text
+$ firebase firestore:databases:list --project ai-social-media-system
+projects/ai-social-media-system/databases/default   ENTERPRISE   FIRESTORE_NATIVE
+```
+
+Fixed by making the database ID explicit configuration —
+`FIREBASE_DATABASE_ID` and `NEXT_PUBLIC_FIREBASE_DATABASE_ID`, both
+defaulting to `(default)` — threaded through the Admin SDK, the client SDK,
+all three scripts, and `firebase.json`. Hardcoding `default` would have been
+shorter and wrong: it is this project's accident, not the norm.
+
+`npm run verify:services` now passes on both Firestore and Cloudinary.
+
+That first database was also **Enterprise** edition in **africa-south1** —
+a different pricing model from the Standard edition §29 assumes, and a poor
+region for an Asia/Karachi team. Neither can be changed after creation, so
+it was deleted and recreated via the CLI while still empty:
+
+```bash
+firebase firestore:databases:create "(default)"   --location=asia-south1 --edition=standard --project=ai-social-media-system
+```
+
+The result is `(default)` / `asia-south1` / `STANDARD` / `FIRESTORE_NATIVE`,
+confirmed with `firestore:databases:get`. Both database-ID overrides were
+removed from `.env.local` and `firebase.json` returned to `(default)`; the
+configuration added above stays, since defaulting to `(default)` is now
+simply correct and the next project may not be.
+
+Note for anyone repeating this: a deleted database ID cannot be reused for
+several minutes, and the console reports that as a bare retry countdown.
+
+`firestore.rules` was then deployed to the live project, and unauthenticated
+reads of `profiles`, `auditLogs` and an arbitrary collection were each
+confirmed to return `PERMISSION_DENIED` against the deployed rules rather
+than only against the emulator.
+
+### Firebase Authentication — RESOLVED 2026-08-31
+
+Provisioning the first ADMIN initially failed with
+`auth/configuration-not-found`: Firebase Authentication had never been
+initialized in the project. The owner enabled it from the console
+(Authentication → Get started → Email/Password).
+
+This was left to the console on purpose rather than done through the
+Identity Toolkit API, because that route can move a project onto Identity
+Platform — a separate product with its own pricing — while the console
+button enables plain Firebase Auth, which is what §26 and §29 intend.
+
+### Live verification against the real project
+
+The first ADMIN was then provisioned, and the whole chain was exercised
+against the live project rather than trusted from the script's own output:
+
+| Check | Result |
+|---|---|
+| Auth record | `customClaims {"role":"ADMIN"}`, provider `password`, not disabled |
+| `profiles/{uid}` | exists, `role: ADMIN`, `status: ACTIVE`, both timestamps set |
+| Accounts in project | exactly one |
+| `signInWithPassword` | succeeds, returns the expected uid |
+| `POST /api/auth/session` | `200`, `{"uid":…,"role":"ADMIN"}` |
+| Session cookie | `Secure; HttpOnly; SameSite=lax; Max-Age=432000` |
+| `GET /` with the cookie | `200`, no redirect, renders "Admin" and the full ADMIN permission list |
+| `auditLogs` | one `LOGIN` / `SUCCESS` entry for that uid |
+| `DELETE /api/auth/session` then `GET /` | redirected back to `/login` |
+| `_healthcheck` | no leftover documents |
+
+Module 01 is therefore verified end to end against production, not only
+against the emulators.
 
 ### Next
 
-Module 02 — Company & Brand Intelligence.
+Module 02 — Company & Brand Intelligence. Nothing blocks it.
