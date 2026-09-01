@@ -366,3 +366,19 @@ test("a story shows a derived status, which is never stored (§17)", async ({ pa
 
   await expect(page.getByTestId("story-status").first()).toBeVisible();
 });
+
+test("a version still in review is not offered a slot (§18)", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/content?status=IN_REVIEW");
+
+  // §18: only approved content can be scheduled, and nothing here is approved
+  // — approval needs a rendered card, which this suite never spends credits on.
+  await expect(page.getByTestId("schedule-form")).toHaveCount(0);
+});
+
+test("a version with no slot says so rather than showing a blank time (§16)", async ({ page }) => {
+  await signIn(page, fixture.socialManager);
+  await page.goto("/content?status=IN_REVIEW");
+
+  await expect(page.getByTestId("platform-post").first()).toContainText("Not scheduled yet");
+});

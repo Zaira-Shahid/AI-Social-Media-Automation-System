@@ -88,6 +88,14 @@ test("the news screen is not reachable without a session", async ({ page }) => {
   await expect(page).toHaveURL(/\/login\?next=%2Fnews/);
 });
 
+test("the scheduler webhook rejects an unsigned request", async ({ request }) => {
+  const response = await request.post("/api/webhooks/content/due", {
+    data: { trigger: "schedule" },
+  });
+
+  expect(response.status()).toBe(401);
+});
+
 test("the calendar is not reachable without a session", async ({ page }) => {
   await page.goto("/calendar");
 

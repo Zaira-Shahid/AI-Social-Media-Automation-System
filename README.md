@@ -25,6 +25,7 @@ run what exists today.
 | 08 — Static Post Generator | Complete ([plan](docs/module-08-plan.md)) |
 | 09 — Content Preview & Approval | Complete ([plan](docs/module-09-plan.md)) |
 | 10 — Social Media Calendar | Complete ([plan](docs/module-10-plan.md)) |
+| 11 — Scheduling Engine | Complete ([plan](docs/module-11-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -39,8 +40,12 @@ per-platform approval to each eligible version. Status transitions are
 enforced on the server; the story-level status is derived for display only and
 never stored. A read-only calendar shows what is scheduled by month, week or
 day in the company's configured timezone, filtered by platform and status,
-alongside the approved versions still waiting for a slot. Nothing publishes
-yet, and nothing is scheduled yet — scheduling arrives in Module 11.
+alongside the approved versions still waiting for a slot. Approved versions can
+now be given a slot: the time is picked in the company's timezone and stored as
+UTC, only approved work can be scheduled, and two posts cannot land on one
+account within fifteen minutes. An n8n tick reports what is due and verifies
+each one's approval record. Nothing publishes yet — the publishing engine is
+Module 16, and the tick says so rather than pretending.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,

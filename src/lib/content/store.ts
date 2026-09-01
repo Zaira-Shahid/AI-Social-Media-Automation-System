@@ -227,6 +227,112 @@ export async function listScheduledPostsBetween(
 }
 
 /**
+ * Put a post in a slot (§17, §18, §53).
+ *
+ * Everything happens inside one transaction: the status is re-read, the
+ * neighbouring slots are re-read, and only then is the time written. Checking
+ * either of those beforehand would leave the window §53 exists to close — two
+ * schedulers, or one impatient double-click, both passing a check made against
+ * a state that has since changed.
+ *
+ * The rules themselves are passed in, so this function knows how to write a
+ * slot and nothing about what makes one acceptable.
+ */
+export async function scheduleAtInstant(
+  id: string,
+  instant: Date,
+  rules: {
+    isAllowed: (status: PostStatus) => boolean;
+    refusal: (status: PostStatus) => string;
+    window: (instant: Date) => { fromIso: string; toIso: string };
+    findConflict: (
+      slots: { id: string; platform: string; scheduledAt: string }[],
+      candidate: { id: string; platform: string; instant: Date },
+    ) => { id: string; platform: string; scheduledAt: string } | null;
+    conflictRefusal: (slot: { platform: string; scheduledAt: string }) => string;
+  },
+): Promise<TransitionResult> {
+  const firestore = getAdminFirestore();
+  const reference = platformPosts().doc(id);
+  const { fromIso, toIso } = rules.window(instant);
+
+  return firestore.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+
+    if (!snapshot.exists) return { ok: false as const, reason: "That post no longer exists." };
+
+    const current = parsePlatformPost(snapshot.id, snapshot.data());
+
+    if (!current) {
+      return { ok: false as const, reason: "That post's stored data is not readable." };
+    }
+
+    if (!rules.isAllowed(current.status)) {
+      return { ok: false as const, reason: rules.refusal(current.status) };
+    }
+
+    /*
+     * A range on `scheduledAt` alone, filtered in memory. Adding platform to
+     * the query would need a composite index for a window that never holds
+     * more than a handful of posts.
+     */
+    const neighbours = await transaction.get(
+      platformPosts().where("scheduledAt", ">=", fromIso).where("scheduledAt", "<", toIso),
+    );
+
+    const slots = neighbours.docs
+      .map((document) => parsePlatformPost(document.id, document.data()))
+      .filter((post): post is StoredPlatformPost => post !== null)
+      // Only live plans collide. A rejected or failed version sitting on a
+      // timestamp is history, not a booking.
+      .filter((post) => post.status === "SCHEDULED" || post.status === "PUBLISHED")
+      .map((post) => ({
+        id: post.id,
+        platform: post.platform,
+        scheduledAt: post.scheduledAt ?? "",
+      }));
+
+    const conflict = rules.findConflict(slots, {
+      id,
+      platform: current.platform,
+      instant,
+    });
+
+    if (conflict) return { ok: false as const, reason: rules.conflictRefusal(conflict) };
+
+    const scheduledAt = instant.toISOString();
+
+    transaction.set(
+      reference,
+      { scheduledAt, status: "SCHEDULED", updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+
+    return { ok: true as const, post: { ...current, scheduledAt, status: "SCHEDULED" } };
+  });
+}
+
+/**
+ * Posts whose slot has arrived (§49, §53).
+ *
+ * SCHEDULED only, and ordered by the time they were due, so the oldest debt is
+ * paid first. Approval is not inferred from being here: the publishing engine
+ * re-checks it on the document itself (§17, §18).
+ */
+export async function listDuePosts(nowIso: string, limit: number): Promise<StoredPlatformPost[]> {
+  const snapshot = await platformPosts()
+    .where("status", "==", "SCHEDULED")
+    .where("scheduledAt", "<=", nowIso)
+    .orderBy("scheduledAt", "asc")
+    .limit(limit)
+    .get();
+
+  return snapshot.docs
+    .map((document) => parsePlatformPost(document.id, document.data()))
+    .filter((post): post is StoredPlatformPost => post !== null);
+}
+
+/**
  * Approved versions with no slot yet (§18, §38).
  *
  * The calendar shows these beside the grid rather than hiding them: work that
