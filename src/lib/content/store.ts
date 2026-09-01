@@ -14,6 +14,7 @@ import {
   type ContentItem,
   type ContentVersion,
   type PlatformPost,
+  type PostStatus,
 } from "@/lib/content/schema";
 
 /**
@@ -245,4 +246,99 @@ export async function listVersions(platformPostId: string): Promise<ContentVersi
     .map((document) => contentVersionSchema.safeParse(document.data()))
     .filter((parsed) => parsed.success)
     .map((parsed) => parsed.data);
+}
+
+export type TransitionResult =
+  { ok: true; post: StoredPlatformPost } | { ok: false; reason: string };
+
+/**
+ * Move a platform post to a new status (§17, §33).
+ *
+ * The current status is re-read **inside a transaction** and the rule applied
+ * there, not against whatever the screen last saw. Two reviewers acting at
+ * once would otherwise both pass a check made seconds earlier — one approving
+ * a post the other had already rejected.
+ *
+ * §17 requires this be enforced server-side; `firestore.rules` denies every
+ * client write on this collection, so this function is the only way the field
+ * moves at all.
+ */
+export async function applyStatusTransition(
+  id: string,
+  to: PostStatus,
+  extra: Partial<Pick<PlatformPost, "approvedBy" | "approvedAt" | "rejectionNote">>,
+  isAllowed: (from: PostStatus, to: PostStatus) => boolean,
+  refusal: (from: PostStatus, to: PostStatus) => string,
+): Promise<TransitionResult> {
+  const firestore = getAdminFirestore();
+  const reference = platformPosts().doc(id);
+
+  return firestore.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+
+    if (!snapshot.exists) return { ok: false as const, reason: "That post no longer exists." };
+
+    const current = parsePlatformPost(snapshot.id, snapshot.data());
+
+    if (!current) {
+      return { ok: false as const, reason: "That post's stored data is not readable." };
+    }
+
+    if (!isAllowed(current.status, to)) {
+      return { ok: false as const, reason: refusal(current.status, to) };
+    }
+
+    transaction.set(
+      reference,
+      { status: to, ...extra, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+
+    return { ok: true as const, post: { ...current, status: to, ...extra } };
+  });
+}
+
+/**
+ * Replace a post's copy after a human edit (§16).
+ *
+ * Guarded the same way and for the same reason: the status is re-read inside
+ * the transaction, so an edit cannot land on a post that was approved while
+ * the form was open.
+ */
+export async function updatePlatformPostCopy(
+  id: string,
+  copy: Pick<PlatformPost, "caption" | "hashtags" | "cta">,
+  isEditable: (status: PostStatus) => boolean,
+): Promise<TransitionResult> {
+  const firestore = getAdminFirestore();
+  const reference = platformPosts().doc(id);
+
+  return firestore.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+
+    if (!snapshot.exists) return { ok: false as const, reason: "That post no longer exists." };
+
+    const current = parsePlatformPost(snapshot.id, snapshot.data());
+
+    if (!current) {
+      return { ok: false as const, reason: "That post's stored data is not readable." };
+    }
+
+    if (!isEditable(current.status)) {
+      return {
+        ok: false as const,
+        reason: `This post is ${current.status.toLowerCase().replace("_", " ")} and can no longer be edited.`,
+      };
+    }
+
+    const version = current.version + 1;
+
+    transaction.set(
+      reference,
+      { ...copy, version, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+
+    return { ok: true as const, post: { ...current, ...copy, version } };
+  });
 }

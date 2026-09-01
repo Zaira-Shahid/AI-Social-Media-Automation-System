@@ -383,6 +383,12 @@ export async function runContentGeneration(actor: string): Promise<GenerationOut
           mediaPublicId: null,
           lastError: null,
           version: 1,
+          // §17: approval is recorded here and nowhere else. Nothing has
+          // approved anything yet, and the fields say so rather than being
+          // absent and ambiguous.
+          approvedBy: null,
+          approvedAt: null,
+          rejectionNote: null,
         });
 
         await recordContentVersion({

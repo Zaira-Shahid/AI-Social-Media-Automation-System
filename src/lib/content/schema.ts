@@ -157,6 +157,18 @@ export const platformPostSchema = z.object({
   lastError: z.string().nullable(),
   /** Module 07 never writes a version number it did not create. */
   version: z.number().int().min(1),
+
+  /**
+   * Who approved this platform version, and when (§17, §55).
+   *
+   * §17 puts approval here and "only here" — the publishing engine reads
+   * authorization from this document alone and must never infer it from the
+   * parent content item.
+   */
+  approvedBy: z.string().nullable(),
+  approvedAt: z.string().datetime().nullable(),
+  /** Why a reviewer rejected it. Null unless the status is REJECTED. */
+  rejectionNote: z.string().nullable(),
 });
 
 export type PlatformPost = z.infer<typeof platformPostSchema>;
