@@ -169,6 +169,19 @@ export const platformPostSchema = z.object({
   approvedAt: z.string().datetime().nullable(),
   /** Why a reviewer rejected it. Null unless the status is REJECTED. */
   rejectionNote: z.string().nullable(),
+
+  /**
+   * When this version is due to publish, in UTC (§18, §32, §54).
+   *
+   * Stored as an instant, never as a wall-clock string: §54 says store UTC and
+   * display in the company's configured timezone, and a calendar that stored
+   * "09:00" would move every scheduled post the day the offset changes.
+   *
+   * Null until Module 11 schedules it. Declared rather than omitted for the
+   * same reason the media fields are — the calendar has to tell "not scheduled"
+   * apart from "we do not know" (§67).
+   */
+  scheduledAt: z.string().datetime().nullable(),
 });
 
 export type PlatformPost = z.infer<typeof platformPostSchema>;

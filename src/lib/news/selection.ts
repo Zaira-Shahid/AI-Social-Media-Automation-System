@@ -13,6 +13,7 @@ import {
   saveSelection,
   type StoredNewsItem,
 } from "@/lib/news/store";
+import { dateInTimeZone } from "@/lib/time";
 
 /**
  * Human news selection (spec §8, §10, §46).
@@ -47,12 +48,7 @@ export function isSelectable(item: StoredNewsItem): boolean {
  * history. `en-CA` is used only because it formats as YYYY-MM-DD.
  */
 export function selectionDateFor(now: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
+  return dateInTimeZone(now, timeZone);
 }
 
 export function currentSelectionDate(now: Date = new Date()): string {
