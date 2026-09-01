@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { can } from "@/lib/auth/roles";
 import { requirePermission } from "@/lib/auth/current-user";
 import { listRankedItems } from "@/lib/news/store";
+import { NEWS_SHORTLIST_WORKFLOW } from "@/lib/slack/schema";
+import { listNotifications } from "@/lib/slack/store";
 
 /**
  * Ranked stories and the daily shortlist (spec §7, §8).
@@ -20,7 +22,12 @@ export default async function NewsPage() {
   await requirePermission("content:view");
 
   const user = await getCurrentUser();
-  const items = await listRankedItems(60);
+  const [items, notifications] = await Promise.all([
+    listRankedItems(60),
+    // Read server-side: `firestore.rules` denies clients this collection
+    // outright, the same as the audit log (§33).
+    listNotifications(NEWS_SHORTLIST_WORKFLOW, 5),
+  ]);
 
   return (
     <div className="max-w-4xl">
@@ -32,6 +39,7 @@ export default async function NewsPage() {
 
       <NewsShortlist
         items={items}
+        notifications={notifications}
         canRank={user?.role ? can(user.role, "automations:manage") : false}
       />
     </div>

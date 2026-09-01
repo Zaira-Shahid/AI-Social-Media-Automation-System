@@ -3,9 +3,15 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { rankNow, type RankFormState } from "@/app/(app)/news/actions";
+import {
+  notifySlackNow,
+  rankNow,
+  type NotifyFormState,
+  type RankFormState,
+} from "@/app/(app)/news/actions";
 import { Button } from "@/components/ui/button";
 import type { StoredNewsItem } from "@/lib/news/store";
+import type { StoredNotificationLog } from "@/lib/slack/store";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,6 +21,7 @@ import { cn } from "@/lib/utils";
  * published date, why it matters, and the relevance score. All six are here.
  */
 const INITIAL_STATE: RankFormState = { status: "idle" };
+const INITIAL_NOTIFY_STATE: NotifyFormState = { status: "idle" };
 
 function RankButton() {
   const { pending } = useFormStatus();
@@ -22,6 +29,16 @@ function RankButton() {
   return (
     <Button type="submit" disabled={pending}>
       {pending ? "Ranking…" : "Rank now"}
+    </Button>
+  );
+}
+
+function NotifyButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" variant="outline" disabled={pending}>
+      {pending ? "Sending…" : "Send to Slack"}
     </Button>
   );
 }
@@ -105,8 +122,17 @@ function StoryRow({ item }: { item: StoredNewsItem }) {
   );
 }
 
-export function NewsShortlist({ items, canRank }: { items: StoredNewsItem[]; canRank: boolean }) {
+export function NewsShortlist({
+  items,
+  notifications,
+  canRank,
+}: {
+  items: StoredNewsItem[];
+  notifications: StoredNotificationLog[];
+  canRank: boolean;
+}) {
   const [state, action] = useActionState(rankNow, INITIAL_STATE);
+  const [notifyState, notifyAction] = useActionState(notifySlackNow, INITIAL_NOTIFY_STATE);
 
   const shortlisted = items.filter((item) => item.status === "SHORTLISTED");
   const ranked = items.filter((item) => item.status !== "SHORTLISTED");
@@ -114,10 +140,16 @@ export function NewsShortlist({ items, canRank }: { items: StoredNewsItem[]; can
   return (
     <div className="mt-6">
       {canRank ? (
-        <div className="flex items-center gap-3">
-          <form action={action}>
-            <RankButton />
-          </form>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <form action={action}>
+              <RankButton />
+            </form>
+
+            <form action={notifyAction}>
+              <NotifyButton />
+            </form>
+          </div>
 
           {state.status !== "idle" && state.message ? (
             <p
@@ -130,6 +162,21 @@ export function NewsShortlist({ items, canRank }: { items: StoredNewsItem[]; can
             >
               {state.mode === "MOCK" ? "Simulated — " : ""}
               {state.message}
+            </p>
+          ) : null}
+
+          {notifyState.status !== "idle" && notifyState.message ? (
+            <p
+              role="status"
+              data-testid="notify-status"
+              className={cn(
+                "text-sm",
+                notifyState.status === "error" ? "text-destructive" : "text-muted-foreground",
+              )}
+            >
+              {/* §67: a simulated send is never reported as a delivered one. */}
+              {notifyState.mode === "MOCK" ? "Simulated — nothing was sent to Slack. " : ""}
+              {notifyState.message}
             </p>
           ) : null}
         </div>
@@ -172,6 +219,66 @@ export function NewsShortlist({ items, canRank }: { items: StoredNewsItem[]; can
           ) : null}
         </>
       )}
+
+      <NotificationHistory entries={notifications} />
     </div>
+  );
+}
+
+/**
+ * Delivery history (§9's notification logs, §52).
+ *
+ * Shows what actually happened rather than what was intended: a send, a
+ * failure with its reason, or a skip. §67 means "no news today" and "Slack
+ * broke" must never look the same on this screen.
+ */
+function NotificationHistory({ entries }: { entries: StoredNotificationLog[] }) {
+  return (
+    <section className="mt-10">
+      <h2 className="text-sm font-semibold">Slack notifications</h2>
+
+      {entries.length === 0 ? (
+        <p className="mt-2 rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
+          The shortlist has not been sent to Slack yet.
+        </p>
+      ) : (
+        <ul className="mt-2 rounded-lg border border-border px-4" data-testid="notification-log">
+          {entries.map((entry) => (
+            <li key={entry.id} className="border-b border-border py-3 text-sm last:border-b-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    "rounded-md px-2 py-0.5 text-xs font-medium",
+                    entry.status === "FAILED"
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {entry.status}
+                </span>
+
+                {entry.mode === "MOCK" ? (
+                  <span
+                    className="rounded-md bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive"
+                    data-testid="notification-mock-badge"
+                  >
+                    Simulated
+                  </span>
+                ) : null}
+
+                <span className="text-muted-foreground">
+                  {entry.storyCount} {entry.storyCount === 1 ? "story" : "stories"} ·{" "}
+                  {entry.channel} · {entry.trigger.toLowerCase()}
+                </span>
+              </div>
+
+              {entry.detail ? (
+                <p className="mt-1 text-xs text-muted-foreground">{entry.detail}</p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

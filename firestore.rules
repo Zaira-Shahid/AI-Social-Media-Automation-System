@@ -79,6 +79,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Notification delivery records (§9). Server-only for the same reason as
+    // automation runs: a client that can write these can claim the team was
+    // told about a shortlist it never saw (§67). The news screen reads them
+    // through the Admin SDK, not from the browser.
+    match /notificationLogs/{document} {
+      allow read, write: if false;
+    }
+
     // Audit logs (§55) are server-only. Denied outright, including reads: an
     // audit trail a client can read is a map of who did what, and one a
     // client can write is not evidence of anything (§33).

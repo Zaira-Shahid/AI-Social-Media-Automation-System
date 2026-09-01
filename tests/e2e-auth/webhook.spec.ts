@@ -59,3 +59,34 @@ test("a stale timestamp is rejected, so a captured request cannot be replayed", 
 
   expect(response.status()).toBe(401);
 });
+
+test("an unsigned notification request is rejected", async ({ request }) => {
+  const response = await request.post("/api/webhooks/news/notify", {
+    data: JSON.stringify({ trigger: "daily" }),
+    headers: { "content-type": "application/json" },
+  });
+
+  expect(response.status()).toBe(401);
+});
+
+test("a correctly signed request runs the Slack notification in mock mode", async ({ request }) => {
+  const body = JSON.stringify({ trigger: "daily" });
+
+  const response = await request.post("/api/webhooks/news/notify", {
+    headers: signed(body),
+    data: body,
+  });
+
+  expect(response.status()).toBe(200);
+
+  const payload = await response.json();
+
+  // §21: the caller is told plainly that nothing reached a real workspace.
+  expect(payload.mode).toBe("MOCK");
+  /*
+   * Whether there is a shortlist to send depends on whether the ranking spec
+   * has run yet, and spec files do not share an order. Both outcomes are
+   * successes; a delivery failure would be neither.
+   */
+  expect(["SENT", "SKIPPED"]).toContain(payload.status);
+});

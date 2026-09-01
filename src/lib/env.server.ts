@@ -81,6 +81,35 @@ const serverEnvSchema = z.object({
 
   // Placeholder until Module 03 introduces signed n8n webhooks (§44).
   N8N_WEBHOOK_SECRET: z.string().min(1, "N8N_WEBHOOK_SECRET is required"),
+
+  /*
+   * Slack delivery (§9, §21). "mock" logs the message instead of sending it,
+   * which is what keeps development, CI and the emulator run out of a real
+   * workspace (§58).
+   */
+  SLACK_PROVIDER: z.enum(["slack", "mock"]).default("mock"),
+
+  /*
+   * Optional here so the app boots without them in mock mode. Both are checked
+   * where the notifier is built, so a half-configured Slack app fails with a
+   * message naming the missing value rather than a generic env error that
+   * would appear even when nothing needs Slack.
+   */
+  SLACK_BOT_TOKEN: z.string().min(1).optional(),
+  SLACK_NEWS_CHANNEL_ID: z.string().min(1).optional(),
+
+  /*
+   * Public base URL, used to build the links inside a Slack message.
+   *
+   * Defaulted rather than required so local development and the test runs
+   * work unconfigured. It is only ever used to build a link a human clicks —
+   * nothing authenticates against it — so a wrong value produces a dead link,
+   * not a security problem.
+   */
+  APP_BASE_URL: z
+    .string()
+    .url("APP_BASE_URL must be a full URL, including https://")
+    .default("http://localhost:3000"),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
