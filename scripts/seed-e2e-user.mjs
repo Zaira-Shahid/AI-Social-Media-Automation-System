@@ -58,7 +58,7 @@ async function seed({ email, password, role, displayName }) {
   console.log(`Seeded ${email} (${role}) in the emulator as ${user.uid}`);
 }
 
-for (const key of ["admin", "socialManager", "signOutAdmin"]) {
+for (const key of ["admin", "manager", "socialManager", "signOutAdmin"]) {
   await seed(fixture[key]);
 }
 

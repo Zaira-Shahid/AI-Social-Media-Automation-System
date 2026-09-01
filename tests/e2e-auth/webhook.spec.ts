@@ -99,3 +99,12 @@ test("an unsigned content generation request is rejected", async ({ request }) =
 
   expect(response.status()).toBe(401);
 });
+
+test("an unsigned card rendering request is rejected", async ({ request }) => {
+  const response = await request.post("/api/webhooks/content/render", {
+    data: JSON.stringify({ trigger: "generation" }),
+    headers: { "content-type": "application/json" },
+  });
+
+  expect(response.status()).toBe(401);
+});

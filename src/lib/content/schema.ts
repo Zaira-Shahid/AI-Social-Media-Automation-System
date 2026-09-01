@@ -147,8 +147,28 @@ export const platformPostSchema = z.object({
    */
   mediaUrl: z.string().nullable(),
   mediaPublicId: z.string().nullable(),
+  /**
+   * Why the last render or upload failed, or null (§32, §52).
+   *
+   * Kept alongside the null media rather than instead of it: "no image yet"
+   * and "the image failed to render, here is why" are different states, and a
+   * post that shows neither leaves an operator guessing (§67).
+   */
+  lastError: z.string().nullable(),
   /** Module 07 never writes a version number it did not create. */
   version: z.number().int().min(1),
+
+  /**
+   * Who approved this platform version, and when (§17, §55).
+   *
+   * §17 puts approval here and "only here" — the publishing engine reads
+   * authorization from this document alone and must never infer it from the
+   * parent content item.
+   */
+  approvedBy: z.string().nullable(),
+  approvedAt: z.string().datetime().nullable(),
+  /** Why a reviewer rejected it. Null unless the status is REJECTED. */
+  rejectionNote: z.string().nullable(),
 });
 
 export type PlatformPost = z.infer<typeof platformPostSchema>;
