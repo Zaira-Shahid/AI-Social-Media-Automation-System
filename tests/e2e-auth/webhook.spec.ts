@@ -108,3 +108,32 @@ test("an unsigned card rendering request is rejected", async ({ request }) => {
 
   expect(response.status()).toBe(401);
 });
+
+test("an unsigned scheduler request is rejected", async ({ request }) => {
+  const response = await request.post("/api/webhooks/content/due", {
+    data: JSON.stringify({ trigger: "schedule" }),
+    headers: { "content-type": "application/json" },
+  });
+
+  expect(response.status()).toBe(401);
+});
+
+test("the scheduler reports what is due and publishes nothing (§49, §67)", async ({ request }) => {
+  const body = JSON.stringify({ trigger: "schedule" });
+
+  const response = await request.post("/api/webhooks/content/due", {
+    headers: signed(body),
+    data: body,
+  });
+
+  expect(response.status()).toBe(200);
+
+  const payload = await response.json();
+
+  // Nothing is approved in this run, so nothing can be scheduled or due.
+  expect(payload.due).toBe(0);
+  expect(payload.unapproved).toEqual([]);
+  // §67: the response never claims a publish it cannot perform.
+  expect(payload.published).toBeUndefined();
+  expect(payload.detail).toContain("Module 16");
+});

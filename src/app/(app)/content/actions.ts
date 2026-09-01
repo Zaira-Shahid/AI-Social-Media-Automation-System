@@ -17,6 +17,7 @@ import {
   rejectPost,
   ReviewError,
 } from "@/lib/content/review";
+import { schedulePost, ScheduleError } from "@/lib/content/schedule";
 import { logger } from "@/lib/logger";
 
 /**
@@ -389,6 +390,53 @@ export async function editPlatformPost(
     return { status: "success", message: `Saved. This is version ${version}.` };
   } catch (error) {
     return { status: "error", message: reviewMessage(error, "save") };
+  }
+}
+
+/**
+ * Schedule an approved version (§18, §37's Schedule action).
+ *
+ * The date and time are read as the company's wall clock; `schedulePost`
+ * converts them to the UTC instant that gets stored (§54). Nothing here
+ * decides whether the post may be scheduled — that is re-read and re-checked
+ * inside the transaction, where a second reviewer cannot slip past it.
+ */
+export async function schedulePlatformPost(
+  previous: ReviewFormState,
+  form: FormData,
+): Promise<ReviewFormState> {
+  void previous;
+
+  const user = await requirePermission("content:schedule");
+  const platformPostId = String(form.get("platformPostId") ?? "");
+
+  if (!platformPostId) return { status: "error", message: "No post was specified." };
+
+  try {
+    const outcome = await schedulePost(platformPostId, user.uid, {
+      date: String(form.get("date") ?? ""),
+      time: String(form.get("time") ?? ""),
+    });
+
+    await recordAudit({
+      actor: user.uid,
+      action: "POST_SCHEDULED",
+      resource: `platformPosts/${platformPostId}`,
+      status: "SUCCESS",
+      metadata: { scheduledAt: outcome.scheduledAt },
+    });
+
+    revalidatePath("/content");
+    revalidatePath("/calendar");
+
+    return {
+      status: "success",
+      message: `Scheduled for ${outcome.localDate} at ${outcome.localTime}.`,
+    };
+  } catch (error) {
+    if (error instanceof ScheduleError) return { status: "error", message: error.message };
+
+    return { status: "error", message: reviewMessage(error, "schedule") };
   }
 }
 
