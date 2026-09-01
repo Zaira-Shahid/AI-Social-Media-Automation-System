@@ -102,6 +102,41 @@ export async function replacePlatformPostContent(
     .set({ ...content, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
 }
 
+/**
+ * Record a rendered image against a post (§15, §67).
+ *
+ * Written only after the upload has succeeded and returned a URL, so a post
+ * can never claim media that does not exist. Clearing `lastError` here is
+ * deliberate: the failure it described has just been resolved.
+ */
+export async function setPlatformPostMedia(
+  id: string,
+  media: { mediaUrl: string; mediaPublicId: string },
+): Promise<void> {
+  await platformPosts()
+    .doc(id)
+    .set({ ...media, lastError: null, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+}
+
+/**
+ * Record why rendering failed (§52).
+ *
+ * The media fields are explicitly left null rather than untouched: a failed
+ * re-render of a post that already had an image must not leave the old URL
+ * looking like the result of the run that just failed.
+ */
+export async function setPlatformPostRenderError(id: string, message: string): Promise<void> {
+  await platformPosts().doc(id).set(
+    {
+      lastError: message,
+      mediaUrl: null,
+      mediaPublicId: null,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
 export async function getPlatformPost(id: string): Promise<StoredPlatformPost | null> {
   const snapshot = await platformPosts().doc(id).get();
   return snapshot.exists ? parsePlatformPost(snapshot.id, snapshot.data()) : null;
@@ -145,6 +180,22 @@ export async function listPlatformPostsFor(
     .flatMap((snapshot) => snapshot.docs)
     .map((document) => parsePlatformPost(document.id, document.data()))
     .filter((post): post is StoredPlatformPost => post !== null);
+}
+
+/**
+ * Posts still waiting for an image (§15).
+ *
+ * A single equality on `mediaUrl`, so no composite index is needed. Published
+ * posts are excluded: an image is fetched by the platform at publish time, and
+ * replacing one afterwards would change a post that is already live.
+ */
+export async function listPostsWithoutMedia(limit: number): Promise<StoredPlatformPost[]> {
+  const snapshot = await platformPosts().where("mediaUrl", "==", null).limit(limit).get();
+
+  return snapshot.docs
+    .map((document) => parsePlatformPost(document.id, document.data()))
+    .filter((post): post is StoredPlatformPost => post !== null)
+    .filter((post) => post.status !== "PUBLISHED");
 }
 
 /** The most recent content items, newest first, for the content screen. */

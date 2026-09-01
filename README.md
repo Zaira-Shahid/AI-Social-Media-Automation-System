@@ -22,14 +22,16 @@ run what exists today.
 | 05 — Slack News Notification | Complete ([plan](docs/module-05-plan.md)) |
 | 06 — Human News Selection | Complete ([plan](docs/module-06-plan.md)) |
 | 07 — AI Content Generation | Complete ([plan](docs/module-07-plan.md)) |
-| 08 — Static Post Generator | Not started |
+| 08 — Static Post Generator | Complete ([plan](docs/module-08-plan.md)) |
+| 09 — Content Preview & Approval | Not started |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
 shortlist, a Slack notification that posts that shortlist to the team, and the
 full news screen where a human selects exactly three stories for the day. Those
 three are turned into a core message and a Facebook, Instagram and LinkedIn
-version each, waiting in review. Nothing renders images or publishes yet.
+version each, with a branded static card rendered for every one of them,
+waiting in review. Nothing publishes yet.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,
@@ -185,6 +187,27 @@ delivery.
 require a public HTTPS request URL answered within three seconds, which this
 system does not have until it is deployed. The message therefore carries link
 buttons into the app, where §46's selection of exactly three happens.
+
+## Static card rendering
+
+Cards are rendered with Satori (JSX and a CSS subset to SVG) and resvg (SVG to
+PNG), as §15 requires. Headless Chromium is not used.
+
+Fonts ship with the repository in `assets/fonts` — Fontsource's latin 400 and
+700 WOFF builds of the five families the brand form offers, 252 KB in total,
+all SIL OFL 1.1 with the licence bundled alongside. They are not fetched at
+render time, and they are not the variable builds Google Fonts now publishes:
+Satori's font parser throws on those.
+
+`satori`, `harfbuzzjs` and `@resvg/resvg-js` are listed in
+`serverExternalPackages`. The native addon cannot be bundled at all, and a
+bundled Satori resolves HarfBuzz's WebAssembly file against the wrong path and
+fails only in a production build.
+
+**Instagram's asset is stored as JPEG.** Its publishing API accepts no other
+format. The conversion is a single eager one at upload; §28's credit pool is
+shared between storage, bandwidth and transformations, so nothing transforms on
+delivery.
 
 ## Notes on two deliberate choices
 

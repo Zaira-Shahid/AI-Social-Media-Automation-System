@@ -9,6 +9,7 @@ import {
   runContentGeneration,
   GenerationError,
 } from "@/lib/content/generate";
+import { renderPendingCards } from "@/lib/content/media";
 import { logger } from "@/lib/logger";
 
 /**
@@ -143,6 +144,81 @@ export async function regeneratePost(
     const message = error instanceof Error ? error.message : String(error);
 
     logger.error("Regeneration failed", { platformPostId, error: message });
+
+    return { status: "error", message };
+  }
+}
+
+/**
+ * Manual card rendering (spec §15).
+ *
+ * n8n owns the schedule, but a reviewer who has just rewritten a caption wants
+ * to see the card that goes with it now, not tomorrow.
+ */
+export interface RenderFormState {
+  status: "idle" | "success" | "error";
+  message?: string;
+  problems?: string[];
+}
+
+export async function renderImages(
+  previous: RenderFormState,
+  form: FormData,
+): Promise<RenderFormState> {
+  void previous;
+  void form;
+
+  const user = await requirePermission("automations:manage");
+
+  try {
+    const outcome = await renderPendingCards();
+
+    await recordAudit({
+      actor: user.uid,
+      action: "CONTENT_GENERATED",
+      resource: "platformPosts",
+      status: outcome.status === "FAILED" ? "FAILURE" : "SUCCESS",
+      metadata: {
+        outcome: outcome.status,
+        rendered: outcome.rendered,
+        problems: outcome.problems.length,
+        missingLogo: outcome.missingLogo,
+      },
+    });
+
+    revalidatePath("/content");
+
+    if (outcome.status === "SKIPPED") {
+      return { status: "success", message: outcome.detail ?? "Nothing to render." };
+    }
+
+    if (outcome.status === "FAILED") {
+      // §67: nothing was produced, so this is not reported as partial success.
+      return { status: "error", message: "No images were rendered.", problems: outcome.problems };
+    }
+
+    /*
+     * A missing logo is reported rather than hidden: the cards are real and
+     * usable, but a person should know they went out without it (§21's spirit
+     * — never let the screen imply more than happened).
+     */
+    const logoNote = outcome.missingLogo
+      ? " The brand logo could not be used, so the cards carry colours and type only."
+      : "";
+
+    return {
+      status: "success",
+      message: `Rendered ${outcome.rendered} ${outcome.rendered === 1 ? "image" : "images"}.${logoNote}`,
+      problems: outcome.problems,
+    };
+  } catch (error) {
+    if (error instanceof GenerationError) {
+      return { status: "error", message: error.message };
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+
+    logger.error("Manual card rendering failed", { error: message });
 
     return { status: "error", message };
   }

@@ -6,8 +6,10 @@ import { useFormStatus } from "react-dom";
 import {
   generateContent,
   regeneratePost,
+  renderImages,
   type GenerateFormState,
   type RegenerateFormState,
+  type RenderFormState,
 } from "@/app/(app)/content/actions";
 import { Button } from "@/components/ui/button";
 import type { StoredContentItem, StoredPlatformPost } from "@/lib/content/store";
@@ -23,6 +25,7 @@ import { cn } from "@/lib/utils";
  */
 const INITIAL_GENERATE: GenerateFormState = { status: "idle" };
 const INITIAL_REGENERATE: RegenerateFormState = { status: "idle" };
+const INITIAL_RENDER: RenderFormState = { status: "idle" };
 
 const PLATFORM_LABELS: Record<string, string> = {
   FACEBOOK: "Facebook",
@@ -36,6 +39,16 @@ function GenerateButton() {
   return (
     <Button type="submit" disabled={pending}>
       {pending ? "Generating…" : "Generate today's content"}
+    </Button>
+  );
+}
+
+function RenderButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" variant="outline" disabled={pending}>
+      {pending ? "Rendering…" : "Render images"}
     </Button>
   );
 }
@@ -113,12 +126,28 @@ function PlatformCard({
         {post.visual.supportingText ? (
           <p className="text-xs text-muted-foreground">{post.visual.supportingText}</p>
         ) : null}
-        <p className="mt-2 text-xs text-muted-foreground">
-          {/* §67: no image exists yet, and the screen does not imply one does. */}
-          {post.mediaUrl
-            ? "Image rendered."
-            : "No image yet — the static post generator is Module 08."}
-        </p>
+        {/*
+          §67: the screen never implies an image exists that does not. Three
+          distinct states — rendered, failed with a reason, and not yet — and
+          they never look alike.
+        */}
+        {post.mediaUrl ? (
+          <a href={post.mediaUrl} target="_blank" rel="noreferrer noopener">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={post.mediaUrl}
+              alt={`Generated ${post.platform} card`}
+              data-testid="card-image"
+              className="mt-2 w-full rounded-md border border-border"
+            />
+          </a>
+        ) : post.lastError ? (
+          <p className="mt-2 text-xs text-destructive" data-testid="render-error">
+            The image could not be rendered: {post.lastError}
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-muted-foreground">No image rendered yet.</p>
+        )}
       </div>
 
       {canRegenerate ? (
@@ -156,14 +185,21 @@ export function ContentList({
   canRegenerate: boolean;
 }) {
   const [state, action] = useActionState(generateContent, INITIAL_GENERATE);
+  const [renderState, renderAction] = useActionState(renderImages, INITIAL_RENDER);
 
   return (
     <div className="mt-6">
       {canGenerate ? (
         <div className="space-y-2">
-          <form action={action}>
-            <GenerateButton />
-          </form>
+          <div className="flex flex-wrap items-center gap-3">
+            <form action={action}>
+              <GenerateButton />
+            </form>
+
+            <form action={renderAction}>
+              <RenderButton />
+            </form>
+          </div>
 
           {state.status !== "idle" && state.message ? (
             <p
@@ -176,6 +212,19 @@ export function ContentList({
             >
               {state.mode === "MOCK" ? "Simulated — " : ""}
               {state.message}
+            </p>
+          ) : null}
+
+          {renderState.status !== "idle" && renderState.message ? (
+            <p
+              role="status"
+              data-testid="render-status"
+              className={cn(
+                "text-sm",
+                renderState.status === "error" ? "text-destructive" : "text-muted-foreground",
+              )}
+            >
+              {renderState.message}
             </p>
           ) : null}
 
