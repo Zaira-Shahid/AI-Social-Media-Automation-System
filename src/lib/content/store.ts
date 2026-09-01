@@ -1,6 +1,6 @@
 import "server-only";
 
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldPath, FieldValue } from "firebase-admin/firestore";
 
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { logger } from "@/lib/logger";
@@ -197,6 +197,75 @@ export async function listPostsWithoutMedia(limit: number): Promise<StoredPlatfo
     .map((document) => parsePlatformPost(document.id, document.data()))
     .filter((post): post is StoredPlatformPost => post !== null)
     .filter((post) => post.status !== "PUBLISHED");
+}
+
+/**
+ * Scheduled versions falling inside a window, for the calendar (§32, §38).
+ *
+ * The bounds are UTC instants, because that is what `scheduledAt` stores
+ * (§54); the caller works out which instants a local month covers. Ordered by
+ * `scheduledAt`, so a day's posts arrive in the order they will publish.
+ *
+ * A range filter on `scheduledAt` with an `orderBy` on the same field needs no
+ * composite index; the platform and status filters are applied in memory,
+ * since a calendar window is already a small result set and an index per
+ * filter combination would not earn its keep.
+ */
+export async function listScheduledPostsBetween(
+  fromIso: string,
+  toIso: string,
+): Promise<StoredPlatformPost[]> {
+  const snapshot = await platformPosts()
+    .where("scheduledAt", ">=", fromIso)
+    .where("scheduledAt", "<", toIso)
+    .orderBy("scheduledAt", "asc")
+    .get();
+
+  return snapshot.docs
+    .map((document) => parsePlatformPost(document.id, document.data()))
+    .filter((post): post is StoredPlatformPost => post !== null);
+}
+
+/**
+ * Approved versions with no slot yet (§18, §38).
+ *
+ * The calendar shows these beside the grid rather than hiding them: work that
+ * has been approved and then forgotten is exactly what a calendar is meant to
+ * surface, and it is the queue Module 11 will schedule from. Needs the
+ * `(status, scheduledAt)` composite index §32 calls for.
+ */
+export async function listApprovedUnscheduledPosts(limit: number): Promise<StoredPlatformPost[]> {
+  const snapshot = await platformPosts()
+    .where("status", "==", "APPROVED")
+    .where("scheduledAt", "==", null)
+    .limit(limit)
+    .get();
+
+  return snapshot.docs
+    .map((document) => parsePlatformPost(document.id, document.data()))
+    .filter((post): post is StoredPlatformPost => post !== null);
+}
+
+/** Content items by id, for screens that start from posts rather than stories. */
+export async function getContentItemsByIds(ids: string[]): Promise<StoredContentItem[]> {
+  if (ids.length === 0) return [];
+
+  const unique = [...new Set(ids)];
+  const chunks: string[][] = [];
+
+  // Firestore's documentId() `in` query takes at most 30 ids, as above.
+  for (let index = 0; index < unique.length; index += 30) {
+    chunks.push(unique.slice(index, index + 30));
+  }
+
+  const snapshots = await Promise.all(
+    chunks.map((chunk) => contentItems().where(FieldPath.documentId(), "in", chunk).get()),
+  );
+
+  return snapshots
+    .flatMap((snapshot) => snapshot.docs)
+    .map((document) => parseContentItem(document.id, document.data()))
+    .filter((item): item is StoredContentItem => item !== null);
 }
 
 /** The most recent content items, newest first, for the content screen. */
