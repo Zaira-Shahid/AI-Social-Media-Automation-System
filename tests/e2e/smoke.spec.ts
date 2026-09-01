@@ -96,6 +96,12 @@ test("the scheduler webhook rejects an unsigned request", async ({ request }) =>
   expect(response.status()).toBe(401);
 });
 
+test("the social accounts screen is not reachable without a session", async ({ page }) => {
+  await page.goto("/social-accounts");
+
+  await expect(page).toHaveURL(/\/login\?next=%2Fsocial-accounts/);
+});
+
 test("the calendar is not reachable without a session", async ({ page }) => {
   await page.goto("/calendar");
 

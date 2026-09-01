@@ -56,7 +56,12 @@ const NAVIGATION: NavItem[] = [
   { label: "Analytics", icon: BarChart3 },
   { label: "Strategy", icon: Target },
   { label: "Automation", icon: Workflow },
-  { label: "Social Accounts", icon: Share2 },
+  {
+    label: "Social Accounts",
+    icon: Share2,
+    href: "/social-accounts",
+    permission: "content:view",
+  },
   { label: "Brand", icon: Palette, href: "/brand", permission: "brand:manage" },
   { label: "Settings", icon: Settings },
 ];

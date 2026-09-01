@@ -143,6 +143,23 @@ describe("auditLogs rules", () => {
   });
 });
 
+describe("socialAccounts rules", () => {
+  it("denies an ADMIN reading a connected account from the client (§19)", async () => {
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+    await assertFails(getDoc(doc(db, "socialAccounts/FACEBOOK")));
+  });
+
+  it("denies writing one, so no client can plant a credential", async () => {
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+    await assertFails(setDoc(doc(db, "socialAccounts/FACEBOOK"), { accountId: "123" }));
+  });
+
+  it("denies an unauthenticated read", async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(db, "socialAccounts/FACEBOOK")));
+  });
+});
+
 describe("brand profile rules", () => {
   /** Seeded the way the server action writes them: through the Admin SDK, rules bypassed. */
   beforeEach(async () => {
