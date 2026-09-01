@@ -11,8 +11,8 @@ import type { AIProvider, CompletionRequest, CompletionResult } from "@/lib/ai/p
  * travels with the result and is stored on every document it produces.
  *
  * The output is deterministic: derived from a hash of the prompt, so the same
- * input scores the same way every run. A random mock makes a flaky test suite
- * and teaches nobody anything.
+ * input produces the same result every run. A random mock makes a flaky test
+ * suite and teaches nobody anything.
  */
 export class MockProvider implements AIProvider {
   readonly name = "mock";
@@ -38,13 +38,29 @@ function seededScore(seed: string, min: number, max: number): number {
 }
 
 /**
- * Build a response shaped like the ranking schema.
+ * Dispatch on the schema the caller asked for.
  *
- * The mock is aware of exactly one schema — the ranking one — because that is
- * the only structured call that exists so far. When another module adds one,
- * it extends this rather than inventing a second mock provider.
+ * Keyed by `schemaName` rather than by sniffing the prompt: the caller already
+ * says which contract it wants, and guessing would break the moment two
+ * prompts looked alike.
  */
 function buildMockResponse(request: CompletionRequest): unknown {
+  switch (request.schemaName) {
+    case "news_ranking":
+      return buildRanking(request);
+    case "content_core_message":
+      return buildCoreMessage(request);
+    case "content_platform_versions":
+      return buildPlatformVersions(request);
+    default:
+      throw new Error(
+        `The mock provider has no response for schema "${request.schemaName}". ` +
+          "Add one rather than letting a module silently receive the wrong shape.",
+      );
+  }
+}
+
+function buildRanking(request: CompletionRequest): unknown {
   const ids = [...request.prompt.matchAll(/^ID:\s*(\S+)/gm)].map((match) => match[1]);
 
   return {
@@ -65,5 +81,64 @@ function buildMockResponse(request: CompletionRequest): unknown {
         rejectionReason: relevance < 30 ? "IRRELEVANT" : "NONE",
       };
     }),
+  };
+}
+
+/** The headline the prompt carried, so simulated copy is still about the story. */
+function storyHeadline(prompt: string): string {
+  return prompt.match(/^Headline:\s*(.+)$/m)?.[1]?.trim() ?? "an unnamed story";
+}
+
+function buildCoreMessage(request: CompletionRequest): unknown {
+  const headline = storyHeadline(request.prompt);
+
+  return {
+    headline: `Simulated: ${headline}`.slice(0, 200),
+    keyTakeaway: "Simulated key takeaway — no AI provider was called for this story.",
+    body: [
+      "This copy was simulated. No AI provider was called, so nothing here is a",
+      "real editorial judgement about the story.",
+      "",
+      `The story it stands in for is: ${headline}.`,
+    ]
+      .join(" ")
+      .slice(0, 1_500),
+    sourceReference: "Simulated attribution",
+    angle: "Simulated angle — set AI_PROVIDER to generate for real.",
+  };
+}
+
+/**
+ * One version per requested platform.
+ *
+ * Deliberately kept well inside every platform's caption limit and free of
+ * URLs, so a mock run exercises the validation path rather than tripping it —
+ * a mock that always fails validation tests nothing.
+ */
+function buildPlatformVersions(request: CompletionRequest): unknown {
+  const platforms = (request.prompt.match(/^Platforms:\s*(.+)$/m)?.[1] ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const headline = request.prompt.match(/^Headline:\s*(.+)$/m)?.[1]?.trim() ?? "a story";
+
+  return {
+    versions: platforms.map((platform) => ({
+      platform,
+      caption:
+        `Simulated ${platform} caption — no AI provider was called. Story: ${headline}`.slice(
+          0,
+          900,
+        ),
+      hashtags: ["simulated", "ai", "automation"],
+      cta: "Simulated call to action.",
+      visual: {
+        template: "HEADLINE_CARD",
+        headline: `Simulated: ${headline}`.slice(0, 120),
+        supportingText: "Simulated supporting text.",
+        emphasis: "PRIMARY",
+      },
+    })),
   };
 }
