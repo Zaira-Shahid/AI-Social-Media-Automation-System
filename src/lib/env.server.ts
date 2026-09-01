@@ -99,6 +99,24 @@ const serverEnvSchema = z.object({
   SLACK_NEWS_CHANNEL_ID: z.string().min(1).optional(),
 
   /*
+   * Facebook publishing (§19, §20, §21, §63 Module 12).
+   *
+   * "mock" simulates the publish and reaches nothing, which is the default so
+   * neither development nor the test runs can post to a real Page (§58).
+   * "graph" calls Meta's Graph API with the stored Page token.
+   */
+  FACEBOOK_PROVIDER: z.enum(["graph", "mock"]).default("mock"),
+
+  /*
+   * Meta app credentials, used only to exchange a short-lived user token for a
+   * long-lived one (§19). Optional here and checked where the exchange
+   * happens, so the app boots unconfigured; the app secret never leaves the
+   * server and is never given to n8n.
+   */
+  FACEBOOK_APP_ID: z.string().min(1).optional(),
+  FACEBOOK_APP_SECRET: z.string().min(1).optional(),
+
+  /*
    * Public base URL, used to build the links inside a Slack message.
    *
    * Defaulted rather than required so local development and the test runs

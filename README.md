@@ -26,6 +26,7 @@ run what exists today.
 | 09 — Content Preview & Approval | Complete ([plan](docs/module-09-plan.md)) |
 | 10 — Social Media Calendar | Complete ([plan](docs/module-10-plan.md)) |
 | 11 — Scheduling Engine | Complete ([plan](docs/module-11-plan.md)) |
+| 12 — Facebook Integration | Complete ([plan](docs/module-12-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -46,6 +47,14 @@ UTC, only approved work can be scheduled, and two posts cannot land on one
 account within fifteen minutes. An n8n tick reports what is due and verifies
 each one's approval record. Nothing publishes yet — the publishing engine is
 Module 16, and the tick says so rather than pretending.
+
+The Facebook Page adapter is built against Meta's Graph API v26.0 and the
+publishing adapter contract (Module 16's, stubbed first as §20 requires).
+OAuth tokens are stored encrypted with AES-256-GCM and are never shown, logged
+or readable by any client. `FACEBOOK_PROVIDER` defaults to `mock`, so nothing
+reaches a real Page until it is set deliberately, and the Social Accounts
+screen says REAL, MOCK or which module still owes the integration rather than
+showing everything as "Not connected".
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,
