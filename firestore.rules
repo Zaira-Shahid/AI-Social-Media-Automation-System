@@ -73,6 +73,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // The daily selection (§8, §46). Readable by any signed-in user — the news
+    // screen shows which three stories were chosen, and by whom.
+    //
+    // No client write at any role. "Exactly three" and "not a rejected story"
+    // are validated in the server action (§31); a client write would bypass
+    // both, and the item statuses it has to keep in step would drift.
+    match /selectedNews/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     // Automation run records (§41, §45). Server-only, like the audit log — a
     // client that can write these can forge the operational history.
     match /automationRuns/{document} {

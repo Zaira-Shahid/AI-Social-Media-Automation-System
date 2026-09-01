@@ -20,11 +20,13 @@ run what exists today.
 | 03 — News Source Management | Complete ([plan](docs/module-03-plan.md)) |
 | 04 — AI News Research & Ranking | Complete ([plan](docs/module-04-plan.md)) |
 | 05 — Slack News Notification | Complete ([plan](docs/module-05-plan.md)) |
-| 06 — Human News Selection | Not started |
+| 06 — Human News Selection | Complete ([plan](docs/module-06-plan.md)) |
+| 07 — AI Content Generation | Not started |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
-shortlist, and a Slack notification that posts that shortlist to the team.
+shortlist, a Slack notification that posts that shortlist to the team, and the
+full news screen where a human selects exactly three stories for the day.
 Nothing generates content or publishes yet.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so

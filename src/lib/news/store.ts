@@ -6,13 +6,17 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { logger } from "@/lib/logger";
 import {
   newsItemSchema,
+  newsItemStatusSchema,
+  newsSelectionSchema,
   AUTOMATION_RUNS_COLLECTION,
+  SELECTED_NEWS_COLLECTION,
   EMPTY_SOURCE_HEALTH,
   NEWS_ITEMS_COLLECTION,
   NEWS_SOURCES_COLLECTION,
   newsSourceInputSchema,
   sourceHealthSchema,
   type AutomationRun,
+  type NewsSelection,
   type NewsSource,
   type NewsItemStatus,
   type NewsSourceInput,
@@ -73,9 +77,21 @@ export interface StoredNewsItem {
   category: string;
   duplicateGroup: string;
   status: NewsItemStatus;
+  imageUrl: string;
   compositeScore?: number;
   relevanceScore?: number;
+  credibilityScore?: number;
+  socialPotentialScore?: number;
   aiAnalysis?: Record<string, unknown>;
+  /**
+   * What the status was before a human selected this story.
+   *
+   * Kept so deselecting restores the ranking outcome instead of guessing at
+   * it. Without it, a story dropped from a selection would have to be sent
+   * back to some default status, which would quietly rewrite Module 04's
+   * result.
+   */
+  statusBeforeSelection?: NewsItemStatus;
 }
 
 function parseItem(id: string, data: unknown): StoredNewsItem | null {
@@ -99,8 +115,14 @@ function parseItem(id: string, data: unknown): StoredNewsItem | null {
     category: parsed.data.category,
     duplicateGroup: parsed.data.duplicateGroup,
     status: parsed.data.status,
+    imageUrl: parsed.data.imageUrl,
     compositeScore: typeof extra.compositeScore === "number" ? extra.compositeScore : undefined,
     relevanceScore: typeof extra.relevanceScore === "number" ? extra.relevanceScore : undefined,
+    credibilityScore:
+      typeof extra.credibilityScore === "number" ? extra.credibilityScore : undefined,
+    socialPotentialScore:
+      typeof extra.socialPotentialScore === "number" ? extra.socialPotentialScore : undefined,
+    statusBeforeSelection: newsItemStatusSchema.safeParse(extra.statusBeforeSelection).data,
     aiAnalysis:
       extra.aiAnalysis && typeof extra.aiAnalysis === "object"
         ? (extra.aiAnalysis as Record<string, unknown>)
@@ -315,4 +337,173 @@ export async function recordAutomationRun(run: AutomationRun): Promise<void> {
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+/**
+ * Items for the news screen (§36).
+ *
+ * Everything that has been through ranking, newest first. `DISCOVERED` items
+ * are excluded: an unscored story has no relevance to show and is not
+ * selectable, so listing it would only invite the question of why it cannot
+ * be picked.
+ *
+ * Search and category filtering happen in memory over this bounded page, not
+ * in the query. Firestore has no full-text search and no OR across fields, so
+ * the honest options are an in-memory filter over a capped fetch or a second
+ * search service. §29 rules out the second, and the cap keeps the first from
+ * quietly becoming a full-collection scan.
+ */
+export async function listNewsForScreen(limit: number): Promise<StoredNewsItem[]> {
+  const snapshot = await items()
+    .where("status", "in", ["RANKED", "SHORTLISTED", "SELECTED", "REJECTED"])
+    .orderBy("publishedAt", "desc")
+    .limit(limit)
+    .get();
+
+  return snapshot.docs
+    .map((document) => parseItem(document.id, document.data()))
+    .filter((item): item is StoredNewsItem => item !== null);
+}
+
+export async function getNewsItem(id: string): Promise<StoredNewsItem | null> {
+  const snapshot = await items().doc(id).get();
+  return snapshot.exists ? parseItem(snapshot.id, snapshot.data()) : null;
+}
+
+export interface StoredNewsSelection extends NewsSelection {
+  id: string;
+}
+
+function selections() {
+  return getAdminFirestore().collection(SELECTED_NEWS_COLLECTION);
+}
+
+function parseSelection(id: string, data: unknown): StoredNewsSelection | null {
+  const parsed = newsSelectionSchema.safeParse(data);
+
+  if (!parsed.success) {
+    logger.warn("Stored news selection did not match the schema; skipping", { id });
+    return null;
+  }
+
+  return { id, ...parsed.data };
+}
+
+/**
+ * The active selection for a date, if there is one.
+ *
+ * Superseded selections are excluded deliberately: they are kept as history,
+ * not as state. Only one selection is live for a given day.
+ */
+export async function getSelectionForDate(date: string): Promise<StoredNewsSelection | null> {
+  const snapshot = await selections()
+    .where("selectionDate", "==", date)
+    .where("status", "in", ["PENDING_GENERATION", "GENERATED"])
+    .limit(1)
+    .get();
+
+  return snapshot.empty ? null : parseSelection(snapshot.docs[0].id, snapshot.docs[0].data());
+}
+
+/** Recent selections, newest first, for the history panel. */
+export async function listSelections(limit: number): Promise<StoredNewsSelection[]> {
+  const snapshot = await selections().orderBy("selectedAt", "desc").limit(limit).get();
+
+  return snapshot.docs
+    .map((document) => parseSelection(document.id, document.data()))
+    .filter((entry): entry is StoredNewsSelection => entry !== null);
+}
+
+/**
+ * Record a selection (§46).
+ *
+ * One transaction, because a half-applied selection is worse than none: three
+ * stories marked SELECTED with no selection document would look like a choice
+ * nobody made, and a selection document whose stories were never marked would
+ * be invisible on the screen.
+ *
+ * Inside it:
+ *  - the previous live selection for the day becomes SUPERSEDED
+ *  - stories it held that are not in the new one revert to the status ranking
+ *    gave them, taken from `statusBeforeSelection` rather than guessed
+ *  - the three chosen stories become SELECTED, remembering what they were
+ *
+ * Statuses are re-read inside the transaction rather than trusted from the
+ * caller's earlier read, so two people selecting at once cannot interleave
+ * into a state where four stories are SELECTED.
+ */
+export async function saveSelection(selection: NewsSelection): Promise<string> {
+  const firestore = getAdminFirestore();
+  const newSelectionRef = selections().doc();
+
+  await firestore.runTransaction(async (transaction) => {
+    const previousQuery = await transaction.get(
+      selections()
+        .where("selectionDate", "==", selection.selectionDate)
+        .where("status", "in", ["PENDING_GENERATION", "GENERATED"])
+        .limit(1),
+    );
+
+    const previous = previousQuery.empty ? null : previousQuery.docs[0];
+    const previousIds: string[] = previous
+      ? ((previous.data().storyIds as string[] | undefined) ?? [])
+      : [];
+
+    const chosen = new Set(selection.storyIds);
+    const dropped = previousIds.filter((id) => !chosen.has(id));
+
+    // Every read has to happen before any write inside a Firestore
+    // transaction, so the documents are gathered first.
+    const chosenDocs = await Promise.all(
+      selection.storyIds.map((id) => transaction.get(items().doc(id))),
+    );
+    const droppedDocs = await Promise.all(dropped.map((id) => transaction.get(items().doc(id))));
+
+    for (const document of chosenDocs) {
+      if (!document.exists) throw new Error("A selected story no longer exists.");
+
+      const data = document.data() as { status?: string; statusBeforeSelection?: string };
+
+      transaction.set(
+        document.ref,
+        {
+          status: "SELECTED",
+          // Only recorded on the way in. Re-selecting an already selected
+          // story must not overwrite the ranking outcome with "SELECTED".
+          statusBeforeSelection:
+            data.status === "SELECTED" ? (data.statusBeforeSelection ?? "RANKED") : data.status,
+          selectedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+
+    for (const document of droppedDocs) {
+      if (!document.exists) continue;
+
+      const data = document.data() as { statusBeforeSelection?: string };
+
+      transaction.set(
+        document.ref,
+        {
+          status: data.statusBeforeSelection ?? "RANKED",
+          statusBeforeSelection: FieldValue.delete(),
+          selectedAt: FieldValue.delete(),
+        },
+        { merge: true },
+      );
+    }
+
+    if (previous) {
+      transaction.set(
+        previous.ref,
+        { status: "SUPERSEDED", supersededBy: newSelectionRef.id },
+        { merge: true },
+      );
+    }
+
+    transaction.set(newSelectionRef, { ...selection, createdAt: FieldValue.serverTimestamp() });
+  });
+
+  return newSelectionRef.id;
 }

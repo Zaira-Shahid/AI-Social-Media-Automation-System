@@ -191,6 +191,10 @@ describe("news rules", () => {
       await setDoc(doc(db, "newsSources/src-1"), { name: "TechCrunch AI", active: true });
       await setDoc(doc(db, "newsItems/item-1"), { title: "A story", status: "DISCOVERED" });
       await setDoc(doc(db, "automationRuns/run-1"), { workflow: "01_daily_news_discovery" });
+      await setDoc(doc(db, "selectedNews/sel-1"), {
+        selectionDate: "2026-09-01",
+        storyIds: ["item-1", "item-2", "item-3"],
+      });
       await setDoc(doc(db, "notificationLogs/note-1"), {
         workflow: "03_slack_news_notification",
         status: "SENT",
@@ -231,6 +235,27 @@ describe("news rules", () => {
 
     await assertFails(getDoc(doc(db, "automationRuns/run-1")));
     await assertFails(setDoc(doc(db, "automationRuns/run-2"), { workflow: "forged" }));
+  });
+
+  it("lets any signed-in user read the daily selection", async () => {
+    const db = testEnv.authenticatedContext("user-1", { role: "SOCIAL_MANAGER" }).firestore();
+
+    await assertSucceeds(getDoc(doc(db, "selectedNews/sel-1")));
+  });
+
+  it("denies a client writing a selection, even an ADMIN", async () => {
+    // "Exactly three" and "not a rejected story" are validated server-side
+    // (§31); a client write would bypass both and leave item statuses adrift.
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+
+    await assertFails(setDoc(doc(db, "selectedNews/sel-1"), { storyIds: ["a"] }));
+    await assertFails(setDoc(doc(db, "selectedNews/sel-2"), { storyIds: ["a", "b", "c"] }));
+  });
+
+  it("denies an unauthenticated read of the daily selection", async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+
+    await assertFails(getDoc(doc(db, "selectedNews/sel-1")));
   });
 
   it("denies every client access to notification logs, in both directions", async () => {
