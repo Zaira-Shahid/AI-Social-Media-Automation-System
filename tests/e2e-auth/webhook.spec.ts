@@ -90,3 +90,12 @@ test("a correctly signed request runs the Slack notification in mock mode", asyn
    */
   expect(["SENT", "SKIPPED"]).toContain(payload.status);
 });
+
+test("an unsigned content generation request is rejected", async ({ request }) => {
+  const response = await request.post("/api/webhooks/content/generate", {
+    data: JSON.stringify({ trigger: "selection" }),
+    headers: { "content-type": "application/json" },
+  });
+
+  expect(response.status()).toBe(401);
+});

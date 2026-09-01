@@ -84,6 +84,30 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Generated content (§12, §17, §32). Readable by any signed-in user — the
+    // review queue and the previews both need it.
+    //
+    // No client write at any role. §17 is explicit that a client must never
+    // write `status` on a platform post, and the same reasoning covers the
+    // copy: a caption a browser can rewrite is not the caption anybody
+    // approved. Generation, editing and approval all go through server code.
+    match /contentItems/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /platformPosts/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Version history is the record of what was generated and when. A client
+    // that can write it can rewrite what a reviewer saw (§55).
+    match /contentVersions/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     // Automation run records (§41, §45). Server-only, like the audit log — a
     // client that can write these can forge the operational history.
     match /automationRuns/{document} {

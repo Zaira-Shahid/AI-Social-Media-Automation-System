@@ -51,7 +51,7 @@ const NAVIGATION: NavItem[] = [
     permission: "content:view",
     children: [{ label: "Sources", href: "/news/sources", permission: "sources:manage" }],
   },
-  { label: "Content", icon: FileText },
+  { label: "Content", icon: FileText, href: "/content", permission: "content:view" },
   { label: "Calendar", icon: CalendarDays },
   { label: "Analytics", icon: BarChart3 },
   { label: "Strategy", icon: Target },
