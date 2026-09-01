@@ -18,16 +18,26 @@ run what exists today.
 | 01 — Authentication & Access Control | Complete ([plan](docs/module-01-plan.md)) |
 | 02 — Company & Brand Intelligence | Complete ([plan](docs/module-02-plan.md)) |
 | 03 — News Source Management | Complete ([plan](docs/module-03-plan.md)) |
-| 04 — AI News Research & Ranking | Not started |
+| 04 — AI News Research & Ranking | Complete ([plan](docs/module-04-plan.md)) |
+| 05 — Slack News Notification | Complete ([plan](docs/module-05-plan.md)) |
+| 06 — Human News Selection | Not started |
 
 The app now has login, roles, protected routes, the central brand profile,
-and news discovery from configurable RSS sources. Nothing scores, selects or
-publishes yet.
+news discovery from configurable RSS sources, AI ranking that produces a daily
+shortlist, and a Slack notification that posts that shortlist to the team.
+Nothing generates content or publishes yet.
+
+**AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
+nothing reaches a paid or rate-limited service until it is set deliberately,
+and `SLACK_PROVIDER` defaults to `mock` so no message reaches a real
+workspace. Every simulated result is labelled as such in the UI and stored as
+`MOCK` (§21).
 
 ## Stack
 
 Next.js (App Router) · TypeScript (strict) · Tailwind CSS v4 · shadcn/ui ·
 Firebase (Firestore + Auth, Spark plan) · Cloudinary for media ·
+Groq for AI (free plan, behind a provider abstraction) ·
 Vitest · Playwright · Firebase Emulator Suite. Deployment target is the
 Render free tier (spec §28).
 
@@ -87,7 +97,7 @@ npm run verify           # typecheck + lint + format check + unit tests + build
 npm run test             # Vitest unit tests
 npm run test:rules       # Firestore rules tests against the emulator
 npm run test:e2e         # Playwright tests that need no credentials
-npm run test:e2e:auth    # full login flow against the emulators
+npm run test:e2e:auth    # full credentialed suite against the emulators (port 3100)
 npm run verify:services  # live credential check against Firestore + Cloudinary
 npm run emulators        # Firestore + Auth emulators
 npm run provision:user   # create or update an account (see below)
@@ -124,6 +134,53 @@ The **first** ADMIN has to be created this way, before anything is reachable.
 Firebase Authentication must be enabled in the console first (Authentication
 → Get started → Email/Password). Until it is, provisioning fails with
 `auth/configuration-not-found`, which does not say what is missing.
+
+## AI provider
+
+§30 forbids coupling to one provider, so everything goes through a small
+`AIProvider` interface with two adapters: Groq and a deterministic mock.
+
+Groq was chosen against §29's free-tier-first policy: its free plan needs no
+card and supports JSON-schema constrained decoding. Gemini's free tier was
+rejected because its own pricing page states free-tier content is used to
+improve Google's products, and the brand profile feeds these prompts.
+
+The free plan allows 8,000 tokens a minute, which is the binding constraint —
+ranking batches, truncates and paces itself accordingly.
+
+```dotenv
+AI_PROVIDER=groq
+GROQ_API_KEY=...      # console.groq.com
+```
+
+Leave `AI_PROVIDER` unset (or `mock`) to simulate. A missing key with
+`AI_PROVIDER=groq` fails loudly rather than falling back to simulated scores.
+
+## Slack
+
+The shortlist is posted with `chat.postMessage` using a bot token, rather than
+an incoming webhook: a webhook URL is bound to one channel and its messages can
+never be edited, and later modules need both (§9's publishing status, §41's
+automation alerts).
+
+```dotenv
+SLACK_PROVIDER=slack
+SLACK_BOT_TOKEN=xoxb-...     # api.slack.com/apps -> bot scope chat:write
+SLACK_NEWS_CHANNEL_ID=C...   # the channel ID, not the #name
+APP_BASE_URL=https://...     # only used for the links inside the message
+```
+
+Invite the app to the channel (`/invite @your-app`) or Slack answers
+`not_in_channel`. Leave `SLACK_PROVIDER` unset (or `mock`) to simulate: the
+message is written to the log instead of the workspace, and both the screen
+and the stored record say so. A missing token or channel with
+`SLACK_PROVIDER=slack` fails loudly rather than falling back to simulated
+delivery.
+
+**Slack's interactive buttons are UNAVAILABLE, not missing** (§66). They
+require a public HTTPS request URL answered within three seconds, which this
+system does not have until it is deployed. The message therefore carries link
+buttons into the app, where §46's selection of exactly three happens.
 
 ## Notes on two deliberate choices
 

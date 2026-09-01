@@ -40,6 +40,24 @@ const serverEnvSchema = z.object({
    */
   FIREBASE_DATABASE_ID: z.string().min(1).default("(default)"),
 
+  /*
+   * AI provider (§30). "mock" simulates every call (§21) and needs no key,
+   * which is what keeps development, CI and the emulator run off a live
+   * service (§58).
+   */
+  AI_PROVIDER: z.enum(["groq", "mock"]).default("mock"),
+
+  /*
+   * Optional so the app boots without it in mock mode. It is checked where
+   * the provider is built, not here — a missing key must fail with "AI_PROVIDER
+   * is groq but GROQ_API_KEY is not set", not with a generic env error that
+   * appears even when nothing needs a key.
+   */
+  GROQ_API_KEY: z.string().min(1).optional(),
+
+  /** Overrides the adapter's default. Only some models support strict JSON schema. */
+  AI_MODEL: z.string().min(1).optional(),
+
   CLOUDINARY_CLOUD_NAME: z.string().min(1, "CLOUDINARY_CLOUD_NAME is required"),
   CLOUDINARY_API_KEY: z.string().min(1, "CLOUDINARY_API_KEY is required"),
   CLOUDINARY_API_SECRET: z.string().min(1, "CLOUDINARY_API_SECRET is required"),
@@ -63,6 +81,35 @@ const serverEnvSchema = z.object({
 
   // Placeholder until Module 03 introduces signed n8n webhooks (§44).
   N8N_WEBHOOK_SECRET: z.string().min(1, "N8N_WEBHOOK_SECRET is required"),
+
+  /*
+   * Slack delivery (§9, §21). "mock" logs the message instead of sending it,
+   * which is what keeps development, CI and the emulator run out of a real
+   * workspace (§58).
+   */
+  SLACK_PROVIDER: z.enum(["slack", "mock"]).default("mock"),
+
+  /*
+   * Optional here so the app boots without them in mock mode. Both are checked
+   * where the notifier is built, so a half-configured Slack app fails with a
+   * message naming the missing value rather than a generic env error that
+   * would appear even when nothing needs Slack.
+   */
+  SLACK_BOT_TOKEN: z.string().min(1).optional(),
+  SLACK_NEWS_CHANNEL_ID: z.string().min(1).optional(),
+
+  /*
+   * Public base URL, used to build the links inside a Slack message.
+   *
+   * Defaulted rather than required so local development and the test runs
+   * work unconfigured. It is only ever used to build a link a human clicks —
+   * nothing authenticates against it — so a wrong value produces a dead link,
+   * not a security problem.
+   */
+  APP_BASE_URL: z
+    .string()
+    .url("APP_BASE_URL must be a full URL, including https://")
+    .default("http://localhost:3000"),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
