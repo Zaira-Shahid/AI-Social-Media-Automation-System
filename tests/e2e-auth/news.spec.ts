@@ -231,8 +231,8 @@ test("every selected story gets a version for all three platforms", async ({ pag
 
   const first = page.getByTestId("platform-post").first();
   await expect(first).toContainText("IN REVIEW");
-  // §67: no image exists until Module 08 renders one, and the screen says so.
-  await expect(first).toContainText("No image yet");
+  // §67: no image exists until it is rendered, and the screen says so.
+  await expect(first).toContainText("No image rendered yet.");
 });
 
 test("simulated copy is labelled on every generated story", async ({ page }) => {
@@ -265,4 +265,29 @@ test("a SOCIAL_MANAGER can regenerate a version but cannot start a run", async (
   await expect(page.getByTestId("regenerate-status").first()).toContainText("version 2", {
     timeout: 30_000,
   });
+});
+
+/*
+ * Rendering is deliberately not triggered here. The card renderer runs locally
+ * with no network, but storing the result uploads to the real Cloudinary
+ * account and spends credits — §58 keeps tests off live services. The renderer
+ * itself is covered for real in the unit suite; what this checks is the states
+ * the screen shows around it.
+ */
+test("generated posts show that no image exists yet, and offer to render one", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/content");
+
+  await expect(page.getByRole("button", { name: "Render images" })).toBeVisible();
+  // §67: the screen says plainly that there is no image, rather than showing a
+  // placeholder that reads as one.
+  await expect(page.getByText("No image rendered yet.").first()).toBeVisible();
+  await expect(page.getByTestId("card-image")).toHaveCount(0);
+});
+
+test("a SOCIAL_MANAGER is not offered the rendering run", async ({ page }) => {
+  await signIn(page, fixture.socialManager);
+  await page.goto("/content");
+
+  await expect(page.getByRole("button", { name: "Render images" })).toHaveCount(0);
 });

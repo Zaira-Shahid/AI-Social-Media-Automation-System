@@ -147,6 +147,14 @@ export const platformPostSchema = z.object({
    */
   mediaUrl: z.string().nullable(),
   mediaPublicId: z.string().nullable(),
+  /**
+   * Why the last render or upload failed, or null (§32, §52).
+   *
+   * Kept alongside the null media rather than instead of it: "no image yet"
+   * and "the image failed to render, here is why" are different states, and a
+   * post that shows neither leaves an operator guessing (§67).
+   */
+  lastError: z.string().nullable(),
   /** Module 07 never writes a version number it did not create. */
   version: z.number().int().min(1),
 });

@@ -381,6 +381,7 @@ export async function runContentGeneration(actor: string): Promise<GenerationOut
           // means a post must never claim media it does not have.
           mediaUrl: null,
           mediaPublicId: null,
+          lastError: null,
           version: 1,
         });
 
