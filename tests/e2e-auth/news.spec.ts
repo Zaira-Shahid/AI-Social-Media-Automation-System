@@ -203,3 +203,66 @@ test("a SOCIAL_MANAGER can read the news but cannot select", async ({ page }) =>
   await expect(page.getByTestId("selection-count")).toHaveCount(0);
   await expect(page.getByRole("checkbox")).toHaveCount(0);
 });
+
+/*
+ * Content generation (§12, §47) lives in this file rather than its own spec
+ * because it depends on the selection made above. There is one live selection
+ * per day (§46), so a second spec file selecting its own three stories would
+ * race this one.
+ */
+test("an ADMIN can generate content for the selected stories", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/content");
+
+  await page.getByRole("button", { name: "Generate today's content" }).click();
+
+  const status = page.getByTestId("generate-status");
+  await expect(status).toContainText("waiting for review", { timeout: 30_000 });
+  // §21: the run says plainly that no AI provider was called.
+  await expect(status).toContainText("Simulated");
+});
+
+test("every selected story gets a version for all three platforms", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/content");
+
+  await expect(page.getByTestId("content-item")).toHaveCount(3);
+  await expect(page.getByTestId("platform-post")).toHaveCount(9);
+
+  const first = page.getByTestId("platform-post").first();
+  await expect(first).toContainText("IN REVIEW");
+  // §67: no image exists until Module 08 renders one, and the screen says so.
+  await expect(first).toContainText("No image yet");
+});
+
+test("simulated copy is labelled on every generated story", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/content");
+
+  await expect(page.getByTestId("mock-badge").first()).toBeVisible();
+});
+
+test("generating again does not produce a second set of posts", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/content");
+
+  await page.getByRole("button", { name: "Generate today's content" }).click();
+
+  await expect(page.getByTestId("generate-status")).toContainText("already been generated", {
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId("platform-post")).toHaveCount(9);
+});
+
+test("a SOCIAL_MANAGER can regenerate a version but cannot start a run", async ({ page }) => {
+  await signIn(page, fixture.socialManager);
+  await page.goto("/content");
+
+  // §27 gives SOCIAL_MANAGER regeneration explicitly, but not automations.
+  await expect(page.getByRole("button", { name: "Generate today's content" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Regenerate" }).first().click();
+  await expect(page.getByTestId("regenerate-status").first()).toContainText("version 2", {
+    timeout: 30_000,
+  });
+});

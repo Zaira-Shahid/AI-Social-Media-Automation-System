@@ -58,8 +58,11 @@ describe("firestore.rules baseline", () => {
   });
 
   it("denies reads of an unopened collection even to an authenticated client", async () => {
+    // `contentItems` stood here until Module 07 opened it for reading. The
+    // point of the test is the catch-all, so it now names a collection no
+    // module has opened yet.
     const db = testEnv.authenticatedContext("user-1").firestore();
-    await assertFails(getDoc(doc(db, "contentItems/any-id")));
+    await assertFails(getDoc(doc(db, "analytics/any-id")));
   });
 
   it("denies writes to platform posts, which are server-only", async () => {
@@ -191,6 +194,13 @@ describe("news rules", () => {
       await setDoc(doc(db, "newsSources/src-1"), { name: "TechCrunch AI", active: true });
       await setDoc(doc(db, "newsItems/item-1"), { title: "A story", status: "DISCOVERED" });
       await setDoc(doc(db, "automationRuns/run-1"), { workflow: "01_daily_news_discovery" });
+      await setDoc(doc(db, "contentItems/content-1"), { sourceNewsItemId: "item-1" });
+      await setDoc(doc(db, "platformPosts/post-1"), {
+        contentItemId: "content-1",
+        platform: "LINKEDIN",
+        status: "IN_REVIEW",
+      });
+      await setDoc(doc(db, "contentVersions/version-1"), { platformPostId: "post-1", version: 1 });
       await setDoc(doc(db, "selectedNews/sel-1"), {
         selectionDate: "2026-09-01",
         storyIds: ["item-1", "item-2", "item-3"],
@@ -256,6 +266,39 @@ describe("news rules", () => {
     const db = testEnv.unauthenticatedContext().firestore();
 
     await assertFails(getDoc(doc(db, "selectedNews/sel-1")));
+  });
+
+  it("lets any signed-in user read generated content", async () => {
+    const db = testEnv.authenticatedContext("user-1", { role: "SOCIAL_MANAGER" }).firestore();
+
+    await assertSucceeds(getDoc(doc(db, "contentItems/content-1")));
+    await assertSucceeds(getDoc(doc(db, "platformPosts/post-1")));
+    await assertSucceeds(getDoc(doc(db, "contentVersions/version-1")));
+  });
+
+  it("denies a client writing a platform post's status, which §17 keeps server-side", async () => {
+    for (const role of ["ADMIN", "MANAGER", "SOCIAL_MANAGER"]) {
+      const db = testEnv.authenticatedContext(`user-${role}`, { role }).firestore();
+
+      await assertFails(setDoc(doc(db, "platformPosts/post-1"), { status: "APPROVED" }));
+      // The copy is as protected as the status: a caption a browser can
+      // rewrite is not the caption anybody approved.
+      await assertFails(setDoc(doc(db, "platformPosts/post-1"), { caption: "Injected" }));
+    }
+  });
+
+  it("denies a client rewriting the version history", async () => {
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+
+    await assertFails(setDoc(doc(db, "contentVersions/version-1"), { caption: "Rewritten" }));
+    await assertFails(setDoc(doc(db, "contentItems/content-1"), { sourceNewsItemId: "other" }));
+  });
+
+  it("denies an unauthenticated read of generated content", async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+
+    await assertFails(getDoc(doc(db, "contentItems/content-1")));
+    await assertFails(getDoc(doc(db, "platformPosts/post-1")));
   });
 
   it("denies every client access to notification logs, in both directions", async () => {

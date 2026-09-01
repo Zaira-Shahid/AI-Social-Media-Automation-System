@@ -405,6 +405,17 @@ export async function getSelectionForDate(date: string): Promise<StoredNewsSelec
   return snapshot.empty ? null : parseSelection(snapshot.docs[0].id, snapshot.docs[0].data());
 }
 
+/**
+ * Mark a selection as generated (§46, §17).
+ *
+ * Written by Module 07 when content actually exists. It is what locks the
+ * day's selection: repointing it afterwards would leave generated content
+ * attributed to stories nobody chose.
+ */
+export async function markSelectionGenerated(id: string): Promise<void> {
+  await selections().doc(id).set({ status: "GENERATED" }, { merge: true });
+}
+
 /** Recent selections, newest first, for the history panel. */
 export async function listSelections(limit: number): Promise<StoredNewsSelection[]> {
   const snapshot = await selections().orderBy("selectedAt", "desc").limit(limit).get();

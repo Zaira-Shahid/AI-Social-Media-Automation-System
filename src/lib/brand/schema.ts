@@ -191,13 +191,18 @@ export const EMPTY_BRAND_SETTINGS: BrandSettings = {
 };
 
 /**
- * Is this profile complete enough for later modules to generate from?
+ * Is this profile complete enough to *write* from?
  *
  * §11 says all generated content must use the brand profile. A profile
- * missing its voice or audience produces generic output, so the check is
- * "usable", not merely "parses".
+ * missing its voice or audience produces generic output in nobody's voice, so
+ * the check is "usable", not merely "parses".
+ *
+ * The logo is deliberately not required here. Text generation (Module 07)
+ * never touches it — it is the static card renderer (Module 08) that cannot
+ * work without one. Gating the writing on it would refuse to draft copy over
+ * an asset the copy does not use.
  */
-export function isBrandConfigured(
+export function isBrandReadyForWriting(
   company: CompanySettings,
   brand: BrandSettings,
 ): { configured: boolean; missing: string[] } {
@@ -206,6 +211,23 @@ export function isBrandConfigured(
   if (!company.name) missing.push("Company name");
   if (!brand.toneOfVoice) missing.push("Tone of voice");
   if (!brand.targetAudience) missing.push("Target audience");
+
+  return { configured: missing.length === 0, missing };
+}
+
+/**
+ * Is the profile complete enough for the whole pipeline, rendering included?
+ *
+ * Everything writing needs, plus the logo the static cards are built around.
+ * This is what the brand screen reports, because a profile without a logo is
+ * only half set up even though drafts will generate from it.
+ */
+export function isBrandConfigured(
+  company: CompanySettings,
+  brand: BrandSettings,
+): { configured: boolean; missing: string[] } {
+  const { missing } = isBrandReadyForWriting(company, brand);
+
   if (!brand.logo) missing.push("Logo");
 
   return { configured: missing.length === 0, missing };
