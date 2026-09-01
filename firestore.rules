@@ -122,6 +122,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Connected social accounts (§19, §42). Denied outright, reads included:
+    // the documents hold encrypted OAuth tokens, and encryption is a second
+    // layer rather than a licence to hand the ciphertext to a browser. §42's
+    // screen reads these through the Admin SDK and never sends a token.
+    match /socialAccounts/{platform} {
+      allow read, write: if false;
+    }
+
     // Audit logs (§55) are server-only. Denied outright, including reads: an
     // audit trail a client can read is a map of who did what, and one a
     // client can write is not evidence of anything (§33).
