@@ -11,6 +11,8 @@ import { z } from "zod";
 export const NEWS_SOURCES_COLLECTION = "newsSources";
 export const NEWS_ITEMS_COLLECTION = "newsItems";
 export const AUTOMATION_RUNS_COLLECTION = "automationRuns";
+/** §32 names this entity `selected_news`; this is its Firestore spelling. */
+export const SELECTED_NEWS_COLLECTION = "selectedNews";
 
 /**
  * Priority is 1 (highest) to 5, not an open number.
@@ -78,11 +80,18 @@ export type NewsSource = z.infer<typeof newsSourceSchema>;
 /**
  * Item status.
  *
- * Module 03 only ever writes DISCOVERED. The later values are declared here
- * so the vocabulary is defined in one place, and because §33 requires that
- * status never be writable from a client wherever it lives.
+ * Module 03 only ever writes DISCOVERED, Module 04 the three ranking
+ * outcomes, and Module 06 SELECTED. The vocabulary is defined in one place,
+ * and §33 requires that status never be writable from a client wherever it
+ * lives.
  */
-export const newsItemStatusSchema = z.enum(["DISCOVERED", "RANKED", "SHORTLISTED", "REJECTED"]);
+export const newsItemStatusSchema = z.enum([
+  "DISCOVERED",
+  "RANKED",
+  "SHORTLISTED",
+  "REJECTED",
+  "SELECTED",
+]);
 
 export type NewsItemStatus = z.infer<typeof newsItemStatusSchema>;
 
@@ -137,3 +146,45 @@ export const automationRunSchema = z.object({
 });
 
 export type AutomationRun = z.infer<typeof automationRunSchema>;
+
+/**
+ * How many stories a human picks (§8).
+ *
+ * Three, exactly — not a minimum and not a maximum. §8 fixes it, and a
+ * selection of two or four is rejected rather than accepted and trimmed.
+ */
+export const SELECTION_SIZE = 3;
+
+/**
+ * Selection state (§46).
+ *
+ * PENDING_GENERATION is where a selection lands and where it stays until
+ * Module 07 exists to consume it. SUPERSEDED records a selection that a later
+ * one replaced — the old one is never deleted, because who chose what, and
+ * when they changed their mind, is exactly the sort of thing an audit trail
+ * is for (§55).
+ */
+export const selectionStatusSchema = z.enum(["PENDING_GENERATION", "SUPERSEDED", "GENERATED"]);
+
+export type SelectionStatus = z.infer<typeof selectionStatusSchema>;
+
+export const newsSelectionSchema = z.object({
+  /** Calendar date in the configured timezone (§54), as YYYY-MM-DD. */
+  selectionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "selectionDate must be YYYY-MM-DD"),
+  /*
+   * Exactly three, and three *different* stories. Without the uniqueness
+   * check, the same story sent three times would satisfy a length test and
+   * produce a day with one story in it.
+   */
+  storyIds: z
+    .array(z.string().min(1))
+    .length(SELECTION_SIZE, `Select exactly ${SELECTION_SIZE} stories`)
+    .refine((ids) => new Set(ids).size === ids.length, "The same story cannot be selected twice"),
+  selectedBy: z.string().min(1),
+  selectedAt: z.string().datetime(),
+  status: selectionStatusSchema,
+  /** Set on the older selection when a newer one replaces it. */
+  supersededBy: z.string().nullable(),
+});
+
+export type NewsSelection = z.infer<typeof newsSelectionSchema>;

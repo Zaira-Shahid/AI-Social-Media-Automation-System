@@ -62,6 +62,7 @@ function story(id: string): StoredNewsItem {
     publishedAt: "2026-08-30T09:00:00.000Z",
     category: "AI",
     duplicateGroup: `group-${id}`,
+    imageUrl: "",
     status: "SHORTLISTED",
     compositeScore: 80,
     relevanceScore: 90,
