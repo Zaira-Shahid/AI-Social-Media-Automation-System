@@ -3,6 +3,7 @@ import { getCurrentUser, requirePermission } from "@/lib/auth/current-user";
 import { can } from "@/lib/auth/roles";
 import { postStatusSchema } from "@/lib/content/schema";
 import { listPlatformPostsFor, listRecentContentItems } from "@/lib/content/store";
+import { getServerEnv } from "@/lib/env.server";
 import type { StoredPlatformPost } from "@/lib/content/store";
 
 /**
@@ -76,6 +77,8 @@ export default async function ContentPage({
         canRegenerate={role ? can(role, "content:regenerate") : false}
         canEdit={role ? can(role, "content:edit") : false}
         canApprove={role ? can(role, "content:approve") : false}
+        canScheduleAny={role ? can(role, "content:schedule") : false}
+        timeZone={getServerEnv().APP_TIMEZONE}
       />
     </div>
   );

@@ -66,20 +66,42 @@ function wallClockAsUtc(instant: Date, timeZone: string): number {
   );
 }
 
+/** The instant at which a local date begins in `timeZone` — its midnight. */
+export function startOfDayInTimeZone(date: string, timeZone: string): Date {
+  return instantFromLocalTime(date, "00:00", timeZone);
+}
+
 /**
- * The instant at which a local date begins in `timeZone`.
+ * The instant at which a local wall-clock time occurs in `timeZone` (§18, §54).
+ *
+ * This is the conversion §18 asks for — a person picks a date and a time in
+ * the company's zone, and what gets stored is the UTC instant they meant.
  *
  * The offset is measured twice: once from a first guess, then again from the
  * corrected instant. A single pass is wrong on the days a zone changes offset,
- * because the offset that applies at midnight is not always the one that
- * applied to the guess.
+ * because the offset that applies at the chosen time is not always the one
+ * that applied to the guess.
+ *
+ * On the hour a zone springs forward, the chosen wall clock may not exist. The
+ * result then lands on the following hour rather than throwing: the intent
+ * ("early on the 8th") is still served, and refusing would strand a scheduler
+ * on one day a year.
  */
-export function startOfDayInTimeZone(date: string, timeZone: string): Date {
-  const guess = new Date(`${date}T00:00:00Z`);
+export function instantFromLocalTime(date: string, time: string, timeZone: string): Date {
+  const guess = new Date(`${date}T${time}:00Z`);
   const first = new Date(guess.getTime() - (wallClockAsUtc(guess, timeZone) - guess.getTime()));
   const offset = wallClockAsUtc(first, timeZone) - first.getTime();
 
   return new Date(guess.getTime() - offset);
+}
+
+/** Is this a 24-hour HH:MM clock time? */
+export function isClockTime(value: string): boolean {
+  if (!/^\d{2}:\d{2}$/.test(value)) return false;
+
+  const [hours, minutes] = value.split(":").map(Number);
+
+  return hours < 24 && minutes < 60;
 }
 
 /** The instant at which a local date ends — the start of the next one. */

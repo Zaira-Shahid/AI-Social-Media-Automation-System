@@ -12,6 +12,7 @@ import {
   regeneratePost,
   rejectPlatformPost,
   renderImages,
+  schedulePlatformPost,
   type GenerateFormState,
   type RegenerateFormState,
   type RenderFormState,
@@ -19,8 +20,10 @@ import {
 } from "@/app/(app)/content/actions";
 import { PLATFORM_LABELS, PostStatusBadge } from "@/components/post-status-badge";
 import { Button } from "@/components/ui/button";
+import { canSchedule } from "@/lib/content/schedule-rules";
 import { canEditCopy, deriveStoryStatus } from "@/lib/content/status";
 import type { StoredContentItem, StoredPlatformPost } from "@/lib/content/store";
+import { dateInTimeZone, timeInTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 /**
@@ -170,6 +173,62 @@ function EditForm({ post }: { post: StoredPlatformPost }) {
   );
 }
 
+/**
+ * When a post goes out (§18, §37's Schedule action).
+ *
+ * The date and time are read as the company's wall clock and stored as a UTC
+ * instant (§54), which is why the zone is written on the form rather than left
+ * to whoever is reading it to assume.
+ */
+function ScheduleForm({ post, timeZone }: { post: StoredPlatformPost; timeZone: string }) {
+  const [state, action] = useActionState(schedulePlatformPost, INITIAL_REVIEW);
+
+  const scheduled = post.scheduledAt ? new Date(post.scheduledAt) : null;
+
+  return (
+    <form action={action} className="mt-3 space-y-2" data-testid="schedule-form">
+      <input type="hidden" name="platformPostId" value={post.id} />
+
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="flex flex-col gap-1">
+          <label htmlFor={`date-${post.id}`} className="text-xs font-medium">
+            Date
+          </label>
+          <input
+            id={`date-${post.id}`}
+            name="date"
+            type="date"
+            defaultValue={scheduled ? dateInTimeZone(scheduled, timeZone) : ""}
+            className="h-8 rounded-lg border border-border bg-background px-2.5 text-sm"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor={`time-${post.id}`} className="text-xs font-medium">
+            Time ({timeZone})
+          </label>
+          <input
+            id={`time-${post.id}`}
+            name="time"
+            type="time"
+            defaultValue={scheduled ? timeInTimeZone(scheduled, timeZone) : ""}
+            className="h-8 rounded-lg border border-border bg-background px-2.5 text-sm"
+          />
+        </div>
+
+        <SubmitButton
+          idle={scheduled ? "Reschedule" : "Schedule"}
+          busy="Scheduling…"
+          variant="outline"
+          size="sm"
+        />
+      </div>
+
+      <StatusMessage state={state} testId="schedule-status" />
+    </form>
+  );
+}
+
 function ReviewControls({ post }: { post: StoredPlatformPost }) {
   const [approveState, approveAction] = useActionState(approvePlatformPost, INITIAL_REVIEW);
   const [rejectState, rejectAction] = useActionState(rejectPlatformPost, INITIAL_REVIEW);
@@ -207,7 +266,9 @@ function PlatformCard({
   canRegenerate,
   canEdit,
   canApprove,
+  canScheduleAny,
   simulated,
+  timeZone,
 }: {
   post: StoredPlatformPost;
   sourceTitle: string;
@@ -215,7 +276,9 @@ function PlatformCard({
   canRegenerate: boolean;
   canEdit: boolean;
   canApprove: boolean;
+  canScheduleAny: boolean;
   simulated: boolean;
+  timeZone: string;
 }) {
   const [state, action] = useActionState(regeneratePost, INITIAL_REGENERATE);
   const open = canEditCopy(post.status);
@@ -260,11 +323,15 @@ function PlatformCard({
           {sourceTitle}
         </a>
         {" · "}
-        {/*
-          §16 lists scheduled time. Scheduling is Module 11, and the screen says
-          so rather than showing a blank that reads as "now".
-        */}
-        Not scheduled yet
+        {/* §16 lists scheduled time; §54 fixes the zone it is read in. */}
+        {post.scheduledAt ? (
+          <span data-testid="scheduled-for">
+            {dateInTimeZone(new Date(post.scheduledAt), timeZone)} at{" "}
+            {timeInTimeZone(new Date(post.scheduledAt), timeZone)} ({timeZone})
+          </span>
+        ) : (
+          "Not scheduled yet"
+        )}
       </p>
 
       <div className="mt-3 rounded-md bg-muted/50 p-3">
@@ -306,12 +373,16 @@ function PlatformCard({
 
       {post.status === "APPROVED" && post.approvedAt ? (
         <p className="mt-3 text-xs text-muted-foreground" data-testid="approved-at">
-          Approved {new Date(post.approvedAt).toLocaleString()}
+          Approved {dateInTimeZone(new Date(post.approvedAt), timeZone)} at{" "}
+          {timeInTimeZone(new Date(post.approvedAt), timeZone)}
         </p>
       ) : null}
 
       {canEdit && open ? <EditForm post={post} /> : null}
       {canApprove && open ? <ReviewControls post={post} /> : null}
+      {canScheduleAny && canSchedule(post.status) ? (
+        <ScheduleForm post={post} timeZone={timeZone} />
+      ) : null}
 
       {canRegenerate && open ? (
         <form action={action} className="mt-3 flex flex-wrap items-center gap-3">
@@ -389,6 +460,8 @@ export function ContentList({
   canRegenerate,
   canEdit,
   canApprove,
+  canScheduleAny,
+  timeZone,
 }: {
   items: StoredContentItem[];
   postsByItem: Record<string, StoredPlatformPost[]>;
@@ -397,6 +470,8 @@ export function ContentList({
   canRegenerate: boolean;
   canEdit: boolean;
   canApprove: boolean;
+  canScheduleAny: boolean;
+  timeZone: string;
 }) {
   const [state, action] = useActionState(generateContent, INITIAL_GENERATE);
   const [renderState, renderAction] = useActionState(renderImages, INITIAL_RENDER);
@@ -523,7 +598,9 @@ export function ContentList({
                       canRegenerate={canRegenerate}
                       canEdit={canEdit}
                       canApprove={canApprove}
+                      canScheduleAny={canScheduleAny}
                       simulated={item.generation.mode === "MOCK"}
+                      timeZone={timeZone}
                     />
                   ))}
                 </div>
