@@ -25,6 +25,7 @@ export const PERMISSIONS = [
   "automations:manage",
   "settings:manage",
   "sources:manage",
+  "news:select",
   "content:view",
   "content:edit",
   "content:regenerate",
@@ -39,6 +40,13 @@ export type Permission = (typeof PERMISSIONS)[number];
 
 /**
  * The permission matrix from §27.
+ *
+ * `news:select` is not named in §27, which lists roles rather than every
+ * action. Choosing the day's three stories (§8, §46) is an editorial decision
+ * about what the company talks about, so it sits with the roles that already
+ * run the pipeline — ADMIN and MANAGER, the same pair that holds
+ * `automations:manage`. SOCIAL_MANAGER writes and approves the content, but
+ * does not set the agenda.
  *
  * §27 qualifies two SOCIAL_MANAGER abilities as "where permitted" and one
  * MANAGER ability as "manage workflows where permitted". Those qualifiers
@@ -55,6 +63,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "automations:manage",
     "settings:manage",
     "sources:manage",
+    "news:select",
     "content:view",
     "content:edit",
     "content:regenerate",
@@ -67,6 +76,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   MANAGER: [
     "content:view",
     "content:approve",
+    "news:select",
     "automations:manage",
     "analytics:view",
     "strategy:view",

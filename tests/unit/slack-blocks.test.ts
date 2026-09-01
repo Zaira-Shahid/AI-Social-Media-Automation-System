@@ -21,6 +21,7 @@ function story(overrides: Partial<StoredNewsItem> = {}): StoredNewsItem {
     publishedAt: "2026-08-30T09:00:00.000Z",
     category: "AI",
     duplicateGroup: "group-1",
+    imageUrl: "",
     status: "SHORTLISTED",
     compositeScore: 82,
     relevanceScore: 91,

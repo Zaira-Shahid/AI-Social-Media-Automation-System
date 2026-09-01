@@ -62,6 +62,15 @@ describe("roles", () => {
     expect(withUserManagement).toEqual(["ADMIN"]);
   });
 
+  it("puts the daily news selection with ADMIN and MANAGER only", () => {
+    // §27 does not name this action, so it follows the roles that already run
+    // the pipeline. SOCIAL_MANAGER writes and approves content, but does not
+    // set the day's agenda (§8, §46).
+    expect(can("ADMIN", "news:select")).toBe(true);
+    expect(can("MANAGER", "news:select")).toBe(true);
+    expect(can("SOCIAL_MANAGER", "news:select")).toBe(false);
+  });
+
   it("lists no permission twice for a role", () => {
     for (const role of ROLES) {
       const permissions = permissionsFor(role);
