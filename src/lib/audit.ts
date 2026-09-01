@@ -28,7 +28,14 @@ export type AuditAction =
   | "POST_FAILED"
   | "ANALYTICS_SYNCED"
   | "STRATEGY_GENERATED"
-  | "SETTINGS_CHANGED";
+  | "SETTINGS_CHANGED"
+  /*
+   * Not in §55's list, which was written before the Slack workflow existed.
+   * A person deliberately pushing the shortlist into the team channel is an
+   * important action by §55's own standard, and the alternative — reusing a
+   * listed action that means something else — would make the trail worse.
+   */
+  | "NOTIFICATION_SENT";
 
 export interface AuditEntry {
   /** UID of the acting user, or a named system actor for automation. */

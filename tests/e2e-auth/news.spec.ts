@@ -98,11 +98,38 @@ test("re-ranking is safe: nothing is left to rank the second time", async ({ pag
   await expect(page.getByTestId("rank-status")).toContainText("Nothing new to rank.");
 });
 
-test("a SOCIAL_MANAGER can read the shortlist but cannot trigger ranking", async ({ page }) => {
+test("an ADMIN can send the shortlist to Slack, and the send is labelled simulated", async ({
+  page,
+}) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/news");
+
+  await page.getByRole("button", { name: "Send to Slack" }).click();
+
+  // §67: the screen never claims a Slack notification was sent when the mock
+  // notifier only logged it.
+  const status = page.getByTestId("notify-status");
+  await expect(status).toContainText("Simulated");
+  await expect(status).toContainText("nothing was sent to Slack");
+});
+
+test("the delivery is recorded in the notification log, badged as simulated", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/news");
+
+  const log = page.getByTestId("notification-log");
+  await expect(log).toBeVisible();
+  await expect(log.getByTestId("notification-mock-badge").first()).toBeVisible();
+});
+
+test("a SOCIAL_MANAGER can read the shortlist but cannot trigger ranking or notify", async ({
+  page,
+}) => {
   await signIn(page, fixture.socialManager);
   await page.goto("/news");
 
   await expect(page.getByRole("heading", { name: "News" })).toBeVisible();
   // §27 puts automations under ADMIN and MANAGER only.
   await expect(page.getByRole("button", { name: "Rank now" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Send to Slack" })).toHaveCount(0);
 });

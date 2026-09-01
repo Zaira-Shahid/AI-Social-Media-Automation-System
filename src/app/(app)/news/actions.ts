@@ -6,6 +6,8 @@ import { recordAudit } from "@/lib/audit";
 import { requirePermission } from "@/lib/auth/current-user";
 import { logger } from "@/lib/logger";
 import { runNewsRanking } from "@/lib/news/rank";
+import { sendShortlistNotification } from "@/lib/slack/notify";
+import { NEWS_SHORTLIST_WORKFLOW } from "@/lib/slack/schema";
 
 /**
  * Manual ranking trigger (spec §46).
@@ -63,6 +65,84 @@ export async function rankNow(previous: RankFormState, form: FormData): Promise<
      * are a missing key and a rate limit, and both are things the person
      * standing at the screen can act on — §52: never silently fail.
      */
+    return { status: "error", message };
+  }
+}
+
+/**
+ * Manual Slack notification (spec §9).
+ *
+ * n8n owns the daily schedule (§44), but the shortlist has to be sendable
+ * before any workflow exists — and after a re-rank, someone often wants the
+ * team to see the new list without waiting until tomorrow.
+ */
+export interface NotifyFormState {
+  status: "idle" | "success" | "error";
+  message?: string;
+  /** §21: whether a message really reached Slack or was simulated. */
+  mode?: "REAL" | "MOCK";
+}
+
+export async function notifySlackNow(
+  previous: NotifyFormState,
+  form: FormData,
+): Promise<NotifyFormState> {
+  void previous;
+  void form;
+
+  // Notifying is an automation, so it sits under automations:manage (§27).
+  const user = await requirePermission("automations:manage");
+
+  try {
+    const outcome = await sendShortlistNotification("MANUAL");
+
+    await recordAudit({
+      actor: user.uid,
+      action: "NOTIFICATION_SENT",
+      resource: "notificationLogs",
+      status: outcome.status === "FAILED" ? "FAILURE" : "SUCCESS",
+      metadata: {
+        workflow: NEWS_SHORTLIST_WORKFLOW,
+        outcome: outcome.status,
+        stories: outcome.storyCount,
+        mode: outcome.mode,
+      },
+    });
+
+    revalidatePath("/news");
+
+    /*
+     * §67: never say "Slack notification sent" unless it was. Each outcome
+     * gets its own wording, and a skip is reported as a skip.
+     */
+    if (outcome.status === "FAILED") {
+      return {
+        status: "error",
+        mode: outcome.mode,
+        message: outcome.detail ?? "Slack refused it.",
+      };
+    }
+
+    if (outcome.status === "SKIPPED") {
+      return {
+        status: "success",
+        mode: outcome.mode,
+        message: outcome.detail ?? "Nothing to send.",
+      };
+    }
+
+    return {
+      status: "success",
+      mode: outcome.mode,
+      message: `Sent ${outcome.storyCount} ${outcome.storyCount === 1 ? "story" : "stories"} to ${outcome.channel}.`,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    // The common failure is a missing token or channel, which is something
+    // the person at the screen can act on (§52).
+    logger.error("Manual Slack notification failed", { error: message });
+
     return { status: "error", message };
   }
 }

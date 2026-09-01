@@ -255,6 +255,25 @@ export async function listRankedItems(limit: number): Promise<StoredNewsItem[]> 
 }
 
 /**
+ * The current shortlist, best first (§8).
+ *
+ * Ordered by score rather than date, because this is what Slack sends and
+ * what a person reads top-down when choosing three. Uses the declared
+ * `(status, compositeScore)` index.
+ */
+export async function listShortlistedItems(limit: number): Promise<StoredNewsItem[]> {
+  const snapshot = await items()
+    .where("status", "==", "SHORTLISTED")
+    .orderBy("compositeScore", "desc")
+    .limit(limit)
+    .get();
+
+  return snapshot.docs
+    .map((document) => parseItem(document.id, document.data()))
+    .filter((item): item is StoredNewsItem => item !== null);
+}
+
+/**
  * Write a ranking result.
  *
  * Merged, so the normalized fields Module 03 wrote are untouched. `status`,

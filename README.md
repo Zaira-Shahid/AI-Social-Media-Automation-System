@@ -19,16 +19,19 @@ run what exists today.
 | 02 — Company & Brand Intelligence | Complete ([plan](docs/module-02-plan.md)) |
 | 03 — News Source Management | Complete ([plan](docs/module-03-plan.md)) |
 | 04 — AI News Research & Ranking | Complete ([plan](docs/module-04-plan.md)) |
-| 05 — Slack News Notification | Not started |
+| 05 — Slack News Notification | Complete ([plan](docs/module-05-plan.md)) |
+| 06 — Human News Selection | Not started |
 
 The app now has login, roles, protected routes, the central brand profile,
-news discovery from configurable RSS sources, and AI ranking that produces a
-daily shortlist. Nothing generates content or publishes yet.
+news discovery from configurable RSS sources, AI ranking that produces a daily
+shortlist, and a Slack notification that posts that shortlist to the team.
+Nothing generates content or publishes yet.
 
-**AI calls are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
-nothing reaches a paid or rate-limited service until it is set deliberately —
-and every simulated score is labelled as such in the UI and stored as `MOCK`
-(§21).
+**AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
+nothing reaches a paid or rate-limited service until it is set deliberately,
+and `SLACK_PROVIDER` defaults to `mock` so no message reaches a real
+workspace. Every simulated result is labelled as such in the UI and stored as
+`MOCK` (§21).
 
 ## Stack
 
@@ -152,6 +155,32 @@ GROQ_API_KEY=...      # console.groq.com
 
 Leave `AI_PROVIDER` unset (or `mock`) to simulate. A missing key with
 `AI_PROVIDER=groq` fails loudly rather than falling back to simulated scores.
+
+## Slack
+
+The shortlist is posted with `chat.postMessage` using a bot token, rather than
+an incoming webhook: a webhook URL is bound to one channel and its messages can
+never be edited, and later modules need both (§9's publishing status, §41's
+automation alerts).
+
+```dotenv
+SLACK_PROVIDER=slack
+SLACK_BOT_TOKEN=xoxb-...     # api.slack.com/apps -> bot scope chat:write
+SLACK_NEWS_CHANNEL_ID=C...   # the channel ID, not the #name
+APP_BASE_URL=https://...     # only used for the links inside the message
+```
+
+Invite the app to the channel (`/invite @your-app`) or Slack answers
+`not_in_channel`. Leave `SLACK_PROVIDER` unset (or `mock`) to simulate: the
+message is written to the log instead of the workspace, and both the screen
+and the stored record say so. A missing token or channel with
+`SLACK_PROVIDER=slack` fails loudly rather than falling back to simulated
+delivery.
+
+**Slack's interactive buttons are UNAVAILABLE, not missing** (§66). They
+require a public HTTPS request URL answered within three seconds, which this
+system does not have until it is deployed. The message therefore carries link
+buttons into the app, where §46's selection of exactly three happens.
 
 ## Notes on two deliberate choices
 
