@@ -49,6 +49,7 @@ function post(overrides: Partial<StoredPlatformPost> = {}): StoredPlatformPost {
     approvedBy: null,
     approvedAt: null,
     rejectionNote: null,
+    scheduledAt: null,
     ...overrides,
   };
 }

@@ -24,6 +24,7 @@ run what exists today.
 | 07 — AI Content Generation | Complete ([plan](docs/module-07-plan.md)) |
 | 08 — Static Post Generator | Complete ([plan](docs/module-08-plan.md)) |
 | 09 — Content Preview & Approval | Complete ([plan](docs/module-09-plan.md)) |
+| 10 — Social Media Calendar | Complete ([plan](docs/module-10-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -36,7 +37,10 @@ version, edits its copy, regenerates it, and approves or rejects it **per
 platform**, with an "approve all" convenience that applies the same
 per-platform approval to each eligible version. Status transitions are
 enforced on the server; the story-level status is derived for display only and
-never stored. Nothing publishes yet.
+never stored. A read-only calendar shows what is scheduled by month, week or
+day in the company's configured timezone, filtered by platform and status,
+alongside the approved versions still waiting for a slot. Nothing publishes
+yet, and nothing is scheduled yet — scheduling arrives in Module 11.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,

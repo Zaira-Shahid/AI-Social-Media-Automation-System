@@ -389,6 +389,9 @@ export async function runContentGeneration(actor: string): Promise<GenerationOut
           approvedBy: null,
           approvedAt: null,
           rejectionNote: null,
+          // Scheduling is Module 11. Null is the honest value, and the
+          // calendar reads it as "approved work with no slot yet".
+          scheduledAt: null,
         });
 
         await recordContentVersion({

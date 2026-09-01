@@ -17,9 +17,9 @@ import {
   type RenderFormState,
   type ReviewFormState,
 } from "@/app/(app)/content/actions";
+import { PLATFORM_LABELS, PostStatusBadge } from "@/components/post-status-badge";
 import { Button } from "@/components/ui/button";
-import { canEditCopy, deriveStoryStatus, statusLabel } from "@/lib/content/status";
-import type { PostStatus } from "@/lib/content/schema";
+import { canEditCopy, deriveStoryStatus } from "@/lib/content/status";
 import type { StoredContentItem, StoredPlatformPost } from "@/lib/content/store";
 import { cn } from "@/lib/utils";
 
@@ -38,12 +38,6 @@ const INITIAL_GENERATE: GenerateFormState = { status: "idle" };
 const INITIAL_REGENERATE: RegenerateFormState = { status: "idle" };
 const INITIAL_RENDER: RenderFormState = { status: "idle" };
 const INITIAL_REVIEW: ReviewFormState = { status: "idle" };
-
-const PLATFORM_LABELS: Record<string, string> = {
-  FACEBOOK: "Facebook",
-  INSTAGRAM: "Instagram",
-  LINKEDIN: "LinkedIn",
-};
 
 /** §37's list, in its order. "All" is added so the queue has a home. */
 const TABS: { label: string; value: string }[] = [
@@ -85,24 +79,6 @@ function SimulatedBadge() {
       data-testid="mock-badge"
     >
       Simulated
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: PostStatus }) {
-  return (
-    <span
-      className={cn(
-        "rounded-md px-2 py-0.5 text-xs font-medium",
-        status === "APPROVED"
-          ? "bg-primary/10 text-primary"
-          : status === "REJECTED" || status === "FAILED"
-            ? "bg-destructive/10 text-destructive"
-            : "bg-muted text-muted-foreground",
-      )}
-      data-testid="post-status"
-    >
-      {statusLabel(status).toUpperCase()}
     </span>
   );
 }
@@ -251,7 +227,7 @@ function PlatformCard({
           {PLATFORM_LABELS[post.platform] ?? post.platform}
         </span>
 
-        <StatusBadge status={post.status} />
+        <PostStatusBadge status={post.status} />
 
         <span className="text-xs text-muted-foreground">v{post.version}</span>
 
