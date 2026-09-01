@@ -10,6 +10,13 @@ import {
   GenerationError,
 } from "@/lib/content/generate";
 import { renderPendingCards } from "@/lib/content/media";
+import {
+  approveAllForStory,
+  approvePost,
+  editPost,
+  rejectPost,
+  ReviewError,
+} from "@/lib/content/review";
 import { logger } from "@/lib/logger";
 
 /**
@@ -222,4 +229,176 @@ export async function renderImages(
 
     return { status: "error", message };
   }
+}
+
+/**
+ * Review actions (spec §10, §16, §17, §48).
+ *
+ * Every one re-checks its permission inside the action. §17 forbids
+ * frontend-only status protection, and a hidden button is exactly that.
+ */
+export interface ReviewFormState {
+  status: "idle" | "success" | "error";
+  message?: string;
+  problems?: string[];
+}
+
+export async function approvePlatformPost(
+  previous: ReviewFormState,
+  form: FormData,
+): Promise<ReviewFormState> {
+  void previous;
+
+  const user = await requirePermission("content:approve");
+  const platformPostId = String(form.get("platformPostId") ?? "");
+
+  if (!platformPostId) return { status: "error", message: "No post was specified." };
+
+  try {
+    await approvePost(platformPostId, user.uid);
+
+    await recordAudit({
+      actor: user.uid,
+      action: "CONTENT_APPROVED",
+      resource: `platformPosts/${platformPostId}`,
+      status: "SUCCESS",
+    });
+
+    revalidatePath("/content");
+
+    return { status: "success", message: "Approved." };
+  } catch (error) {
+    return { status: "error", message: reviewMessage(error, "approve") };
+  }
+}
+
+export async function rejectPlatformPost(
+  previous: ReviewFormState,
+  form: FormData,
+): Promise<ReviewFormState> {
+  void previous;
+
+  const user = await requirePermission("content:approve");
+  const platformPostId = String(form.get("platformPostId") ?? "");
+  const note = String(form.get("note") ?? "");
+
+  if (!platformPostId) return { status: "error", message: "No post was specified." };
+
+  try {
+    await rejectPost(platformPostId, user.uid, note);
+
+    await recordAudit({
+      actor: user.uid,
+      action: "CONTENT_REJECTED",
+      resource: `platformPosts/${platformPostId}`,
+      status: "SUCCESS",
+      metadata: { note: note.slice(0, 300) },
+    });
+
+    revalidatePath("/content");
+
+    return { status: "success", message: "Rejected." };
+  } catch (error) {
+    return { status: "error", message: reviewMessage(error, "reject") };
+  }
+}
+
+/**
+ * Approve every eligible version of one story.
+ *
+ * §63: a convenience over per-platform approval, never a story-level state.
+ * The per-platform refusals come back with it, so nobody is left thinking
+ * three were approved when two were.
+ */
+export async function approveStory(
+  previous: ReviewFormState,
+  form: FormData,
+): Promise<ReviewFormState> {
+  void previous;
+
+  const user = await requirePermission("content:approve");
+  const contentItemId = String(form.get("contentItemId") ?? "");
+
+  if (!contentItemId) return { status: "error", message: "No story was specified." };
+
+  try {
+    const outcome = await approveAllForStory(contentItemId, user.uid);
+
+    await recordAudit({
+      actor: user.uid,
+      action: "CONTENT_APPROVED",
+      resource: `contentItems/${contentItemId}`,
+      status: outcome.approved > 0 ? "SUCCESS" : "FAILURE",
+      metadata: { approved: outcome.approved, problems: outcome.problems.length },
+    });
+
+    revalidatePath("/content");
+
+    if (outcome.approved === 0) {
+      return {
+        status: "error",
+        message: "Nothing was approved.",
+        problems: outcome.problems,
+      };
+    }
+
+    return {
+      status: "success",
+      message: `Approved ${outcome.approved} ${outcome.approved === 1 ? "version" : "versions"}.`,
+      problems: outcome.problems,
+    };
+  } catch (error) {
+    return { status: "error", message: reviewMessage(error, "approve") };
+  }
+}
+
+export async function editPlatformPost(
+  previous: ReviewFormState,
+  form: FormData,
+): Promise<ReviewFormState> {
+  void previous;
+
+  // §27 gives SOCIAL_MANAGER content editing; MANAGER reviews and approves
+  // but does not rewrite.
+  const user = await requirePermission("content:edit");
+  const platformPostId = String(form.get("platformPostId") ?? "");
+
+  if (!platformPostId) return { status: "error", message: "No post was specified." };
+
+  try {
+    const { version } = await editPost(platformPostId, user.uid, {
+      caption: String(form.get("caption") ?? ""),
+      // Split on whitespace and commas: reviewers type them both ways, and
+      // `applyHashtagRules` normalizes whatever arrives.
+      hashtags: String(form.get("hashtags") ?? "")
+        .split(/[\s,]+/)
+        .filter(Boolean),
+      cta: String(form.get("cta") ?? ""),
+    });
+
+    await recordAudit({
+      actor: user.uid,
+      action: "CONTENT_EDITED",
+      resource: `platformPosts/${platformPostId}`,
+      status: "SUCCESS",
+      metadata: { version },
+    });
+
+    revalidatePath("/content");
+
+    return { status: "success", message: `Saved. This is version ${version}.` };
+  } catch (error) {
+    return { status: "error", message: reviewMessage(error, "save") };
+  }
+}
+
+/** A refusal a reviewer can act on, or a generic failure that is logged. */
+function reviewMessage(error: unknown, verb: string): string {
+  if (error instanceof ReviewError) return error.message;
+
+  const message = error instanceof Error ? error.message : String(error);
+
+  logger.error(`Could not ${verb} a platform post`, { error: message });
+
+  return `Could not ${verb} that post. Please try again.`;
 }

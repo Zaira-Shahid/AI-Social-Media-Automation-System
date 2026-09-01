@@ -23,15 +23,20 @@ run what exists today.
 | 06 — Human News Selection | Complete ([plan](docs/module-06-plan.md)) |
 | 07 — AI Content Generation | Complete ([plan](docs/module-07-plan.md)) |
 | 08 — Static Post Generator | Complete ([plan](docs/module-08-plan.md)) |
-| 09 — Content Preview & Approval | Not started |
+| 09 — Content Preview & Approval | Complete ([plan](docs/module-09-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
 shortlist, a Slack notification that posts that shortlist to the team, and the
 full news screen where a human selects exactly three stories for the day. Those
 three are turned into a core message and a Facebook, Instagram and LinkedIn
-version each, with a branded static card rendered for every one of them,
-waiting in review. Nothing publishes yet.
+version each, with a branded static card rendered for every one of them. The
+content screen is now a review queue: a reviewer previews each platform
+version, edits its copy, regenerates it, and approves or rejects it **per
+platform**, with an "approve all" convenience that applies the same
+per-platform approval to each eligible version. Status transitions are
+enforced on the server; the story-level status is derived for display only and
+never stored. Nothing publishes yet.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,

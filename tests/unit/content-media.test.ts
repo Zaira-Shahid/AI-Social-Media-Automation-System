@@ -62,6 +62,9 @@ function post(id: string, overrides: Partial<StoredPlatformPost> = {}): StoredPl
     mediaPublicId: null,
     lastError: null,
     version: 1,
+    approvedBy: null,
+    approvedAt: null,
+    rejectionNote: null,
     ...overrides,
   };
 }

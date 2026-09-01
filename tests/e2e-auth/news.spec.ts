@@ -291,3 +291,78 @@ test("a SOCIAL_MANAGER is not offered the rendering run", async ({ page }) => {
 
   await expect(page.getByRole("button", { name: "Render images" })).toHaveCount(0);
 });
+
+test("approving a post with no image is refused, with the reason (§67)", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/content?status=IN_REVIEW");
+
+  await page.getByRole("button", { name: "Approve", exact: true }).first().click();
+
+  // Nothing was rendered in this run — see the note above — so an approval
+  // here would produce a record publishing could never honour.
+  await expect(page.getByTestId("approve-status").first()).toContainText(
+    "render the card before approving",
+  );
+});
+
+test("a MANAGER can reject a version, and the reason is kept", async ({ page }) => {
+  await signIn(page, fixture.manager);
+  await page.goto("/content?status=IN_REVIEW");
+
+  const queue = page.getByTestId("platform-post");
+  const before = await queue.count();
+
+  const first = queue.first();
+  await first.getByRole("textbox", { name: /Reason for rejecting/ }).fill("Off brand");
+  await first.getByRole("button", { name: "Reject" }).click();
+
+  // A rejected version leaves the review queue, and its form — with the form's
+  // status message — goes with it. That the reason was kept is what the next
+  // test checks, on the tab where the version now lives.
+  await expect(queue).toHaveCount(before - 1);
+});
+
+test("the rejected version shows its reason and offers no further review", async ({ page }) => {
+  await signIn(page, fixture.manager);
+  await page.goto("/content?status=REJECTED");
+
+  const rejected = page.getByTestId("platform-post").first();
+  await expect(rejected).toContainText("Off brand");
+  await expect(rejected.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+});
+
+test("a MANAGER reviews but does not rewrite (§27)", async ({ page }) => {
+  await signIn(page, fixture.manager);
+  await page.goto("/content?status=IN_REVIEW");
+
+  await expect(page.getByRole("button", { name: "Approve", exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Edit", { exact: true })).toHaveCount(0);
+});
+
+test("a SOCIAL_MANAGER can edit a caption, and it becomes a new version", async ({ page }) => {
+  await signIn(page, fixture.socialManager);
+  await page.goto("/content?status=IN_REVIEW");
+
+  const first = page.getByTestId("platform-post").first();
+  await first.getByText("Edit", { exact: true }).click();
+  await first.getByLabel("Caption").fill("An edited caption written by a human.");
+  await first.getByRole("button", { name: "Save changes" }).click();
+
+  await expect(page.getByTestId("edit-status").first()).toContainText("version");
+});
+
+test("the status tabs filter the queue (§37)", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/content?status=APPROVED");
+
+  // Nothing has been approved: every attempt above was refused for want of an
+  // image, which is the point.
+  await expect(page.getByText("Nothing is in this state.")).toBeVisible();
+});
+
+test("a story shows a derived status, which is never stored (§17)", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/content");
+
+  await expect(page.getByTestId("story-status").first()).toBeVisible();
+});
