@@ -11,13 +11,23 @@ import { newsItemSchema, type NewsItem, type NewsSource } from "@/lib/news/schem
 
 /** The shape `rss-parser` produces, narrowed to what normalization uses. */
 export interface FeedEntry {
-  title?: string;
-  link?: string;
-  isoDate?: string;
-  pubDate?: string;
-  contentSnippet?: string;
-  content?: string;
-  summary?: string;
+  /*
+   * Every text field is `unknown` for the reason `categories` is: `rss-parser`
+   * hands back whatever the feed contained, and an element carrying attributes
+   * parses to an object rather than a string. Declaring these `string` did not
+   * make them strings — it only moved the discovery to runtime, where one
+   * `.trim()` or `.replace()` threw and took every item in that feed with it.
+   *
+   * Nothing is trusted to be a string until it has been checked. `toPlainText`
+   * does that checking for the text fields.
+   */
+  title?: unknown;
+  link?: unknown;
+  isoDate?: unknown;
+  pubDate?: unknown;
+  contentSnippet?: unknown;
+  content?: unknown;
+  summary?: unknown;
   /*
    * `unknown[]`, not `string[]`, because that is what `rss-parser` actually
    * hands back. A bare `<category>Tech</category>` parses to a string, but a
@@ -39,8 +49,11 @@ export interface FeedEntry {
  * What is stored should be text, because everything downstream — the AI
  * prompt, the Slack message, the card — wants text.
  */
-export function toPlainText(value: string | undefined): string {
-  if (!value) return "";
+export function toPlainText(value: unknown): string {
+  // A non-string is not an error worth failing a whole feed over — it is a
+  // field this entry did not usefully supply, and the caller already treats
+  // an empty title as "skip this entry".
+  if (typeof value !== "string" || !value) return "";
 
   return value
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -121,8 +134,12 @@ export function duplicateGroupKey(title: string): string {
 }
 
 function firstImage(entry: FeedEntry): string {
+  const enclosureType = entry.enclosure?.type;
+
   const candidates = [
-    entry.enclosure?.type?.startsWith("image/") ? entry.enclosure.url : undefined,
+    typeof enclosureType === "string" && enclosureType.startsWith("image/")
+      ? entry.enclosure?.url
+      : undefined,
     entry["media:content"]?.$?.url,
     entry["media:thumbnail"]?.$?.url,
   ];
@@ -144,7 +161,7 @@ function firstImage(entry: FeedEntry): string {
  */
 function publishedAt(entry: FeedEntry, retrievedAt: string): string {
   for (const candidate of [entry.isoDate, entry.pubDate]) {
-    if (!candidate) continue;
+    if (typeof candidate !== "string" || !candidate) continue;
 
     const parsed = new Date(candidate);
     if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
@@ -207,7 +224,9 @@ export function normalizeEntry(
   retrievedAt: string,
 ): NormalizedEntry | null {
   const title = toPlainText(entry.title);
-  const link = entry.link?.trim();
+  // Not `entry.link?.trim()`: a link that is not a string throws exactly the
+  // way a category did, and an entry without a usable URL is skipped anyway.
+  const link = typeof entry.link === "string" ? entry.link.trim() : undefined;
 
   if (!title || !link) return null;
 
