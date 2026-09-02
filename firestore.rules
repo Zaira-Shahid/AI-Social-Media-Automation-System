@@ -130,6 +130,18 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Analytics (§22, §32, §63 Module 17). Readable by any signed-in user —
+    // this is the read model a future analytics screen (Module 18) queries.
+    //
+    // No client write at any role. Every record here says exactly what a
+    // platform's API answered, including `"UNAVAILABLE"` where it did not —
+    // a client that could write this collection could turn an honest gap
+    // into a fabricated number (§22's "never create fake numbers").
+    match /analytics/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     // Audit logs (§55) are server-only. Denied outright, including reads: an
     // audit trail a client can read is a map of who did what, and one a
     // client can write is not evidence of anything (§33).

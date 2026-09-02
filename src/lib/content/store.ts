@@ -352,6 +352,22 @@ export async function listApprovedUnscheduledPosts(limit: number): Promise<Store
     .filter((post): post is StoredPlatformPost => post !== null);
 }
 
+/**
+ * Published posts, for Module 17's analytics sync.
+ *
+ * `status == "PUBLISHED"` alone: `recordPublishSuccess` never sets that
+ * status without a `providerPostId` in the same write, so every post this
+ * returns already carries one — analytics has something to sync against
+ * without a second filter.
+ */
+export async function listPublishedPosts(limit: number): Promise<StoredPlatformPost[]> {
+  const snapshot = await platformPosts().where("status", "==", "PUBLISHED").limit(limit).get();
+
+  return snapshot.docs
+    .map((document) => parsePlatformPost(document.id, document.data()))
+    .filter((post): post is StoredPlatformPost => post !== null);
+}
+
 /** Content items by id, for screens that start from posts rather than stories. */
 export async function getContentItemsByIds(ids: string[]): Promise<StoredContentItem[]> {
   if (ids.length === 0) return [];
