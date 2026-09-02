@@ -176,6 +176,13 @@ There is no signup route by design — every account is provisioned this way.
 npm run dev
 ```
 
+## Deployment
+
+Ships as a Render Blueprint (`render.yaml`) — every secret is `sync: false`
+and prompted for in Render's dashboard, never stored in the file. Full
+walkthrough, including the exact n8n webhook wiring and HMAC signing
+scheme, in [`docs/deployment-guide.md`](docs/deployment-guide.md).
+
 ## Available Scripts
 
 | Command | What it does |
@@ -201,10 +208,11 @@ npm run dev
 
 ## Documentation
 
-Every module has a detailed implementation writeup — what was built, what
-was verified against official documentation before being trusted, and why —
-in [`docs/`](docs). The full product specification that governs every
-decision in this repository lives in
+All 23 build modules are complete, each with a detailed implementation
+writeup — what was built, what was verified against official documentation
+before being trusted, and why — in [`docs/`](docs); the final QA pass is
+[`docs/module-23-plan.md`](docs/module-23-plan.md). The full product
+specification that governs every decision in this repository lives in
 [`AI-Social-Media-Automation-System.md`](AI-Social-Media-Automation-System.md).
 
 ## Notable Engineering Decisions
