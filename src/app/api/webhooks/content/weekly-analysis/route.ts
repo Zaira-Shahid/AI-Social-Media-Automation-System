@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { isWorkflowEnabled } from "@/lib/automation/gate";
 import { getServerEnv } from "@/lib/env.server";
 import { logger } from "@/lib/logger";
-import { runWeeklyAnalysis } from "@/lib/reporting/weekly";
+import { runWeeklyAnalysis, WEEKLY_ANALYSIS_WORKFLOW } from "@/lib/reporting/weekly";
 import { SIGNATURE_HEADER, TIMESTAMP_HEADER, verifySignature } from "@/lib/webhooks/signature";
 
 /**
@@ -30,6 +31,12 @@ export async function POST(request: Request) {
     logger.warn("Rejected weekly analysis webhook", { reason: verification.reason });
 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!(await isWorkflowEnabled(WEEKLY_ANALYSIS_WORKFLOW))) {
+    logger.info("Weekly analysis skipped: disabled from the Automation Control Center");
+
+    return NextResponse.json({ skipped: true, reason: "This automation is disabled." });
   }
 
   try {

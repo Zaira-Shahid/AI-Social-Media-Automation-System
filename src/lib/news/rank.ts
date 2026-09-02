@@ -3,6 +3,7 @@ import "server-only";
 import { getAIProvider } from "@/lib/ai";
 import type { AIProvider } from "@/lib/ai/provider";
 import { GROQ_FREE_TIER } from "@/lib/ai/groq";
+import { recordAutomationRun } from "@/lib/automation/store";
 import { getBrandProfile } from "@/lib/brand/store";
 import { logger } from "@/lib/logger";
 import {
@@ -20,13 +21,7 @@ import {
   SHORTLIST_MAX,
   SHORTLIST_SCORE_FLOOR,
 } from "@/lib/news/scoring";
-import {
-  listItemsForRanking,
-  listSources,
-  recordAutomationRun,
-  saveRanking,
-  type StoredNewsItem,
-} from "@/lib/news/store";
+import { listItemsForRanking, listSources, saveRanking, type StoredNewsItem } from "@/lib/news/store";
 
 /**
  * News ranking and shortlist generation (spec §7, §8, §45).
@@ -342,6 +337,7 @@ export async function runNewsRanking(trigger: "WEBHOOK" | "MANUAL"): Promise<Ran
     itemsNew: shortlist.length,
     error: failedBatches > 0 ? `${failedBatches} ranking batch(es) failed` : null,
     trigger,
+    metrics: {},
   };
 
   await recordAutomationRun(run);

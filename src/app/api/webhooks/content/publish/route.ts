@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { PUBLISHING_WORKFLOW } from "@/lib/automation/schema";
+import { isWorkflowEnabled } from "@/lib/automation/gate";
 import { getServerEnv } from "@/lib/env.server";
 import { logger } from "@/lib/logger";
 import { runDuePublishing } from "@/lib/publishing/publish";
@@ -37,6 +39,12 @@ export async function POST(request: Request) {
     logger.warn("Rejected publishing webhook", { reason: verification.reason });
 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!(await isWorkflowEnabled(PUBLISHING_WORKFLOW))) {
+    logger.info("Publishing tick skipped: disabled from the Automation Control Center");
+
+    return NextResponse.json({ skipped: true, reason: "This automation is disabled." });
   }
 
   try {

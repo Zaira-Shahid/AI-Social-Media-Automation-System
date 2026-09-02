@@ -33,6 +33,7 @@ run what exists today.
 | 17 — Analytics Collection | Complete ([plan](docs/module-17-plan.md)) |
 | 18 — Weekly Performance Analysis | Complete ([plan](docs/module-18-plan.md)) |
 | 19 — AI Strategy Optimization | Complete ([plan](docs/module-19-plan.md)) |
+| 20 — Automation Control Center | Complete ([plan](docs/module-20-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -137,6 +138,20 @@ Module 06's fixed three-stories-a-day rule (§8) either, however a
 recommendation might read. The Strategy screen (`/strategy`) shows the
 current version, its recommendations, and version history, plus a
 manual "Regenerate now" for ADMIN.
+
+The Automation Control Center (`/automation`) shows every one of §41's eight
+automations — Daily News Discovery, Slack Notification, Content Generation,
+Scheduling, Publishing, Analytics, Weekly Analysis, Strategy Optimization —
+its most recent run, status, last error, and a switch to turn it off. Six of
+those eight recorded nothing before this module: every webhook now records
+one run per attempt (never throwing if that bookkeeping itself fails, so a
+successful run is never reported as failed because its own logging broke),
+and every route checks the switch immediately after verifying its signature.
+n8n still fires each trigger on schedule — this app cannot reach n8n's own
+cron configuration, so turning an automation "off" here means the endpoint
+declines to run its pipeline when asked, not that n8n stops asking, and
+"next run" is shown honestly as "configured in n8n" rather than a guessed
+countdown.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,
