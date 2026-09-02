@@ -29,6 +29,7 @@ run what exists today.
 | 12 — Facebook Integration | Complete ([plan](docs/module-12-plan.md)) |
 | 13 — Instagram Integration | Complete ([plan](docs/module-13-plan.md)) |
 | 14 — LinkedIn Integration | Complete ([plan](docs/module-14-plan.md)) |
+| 16 — Publishing Engine | Complete ([plan](docs/module-16-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -47,8 +48,7 @@ alongside the approved versions still waiting for a slot. Approved versions can
 now be given a slot: the time is picked in the company's timezone and stored as
 UTC, only approved work can be scheduled, and two posts cannot land on one
 account within fifteen minutes. An n8n tick reports what is due and verifies
-each one's approval record. Nothing publishes yet — the publishing engine is
-Module 16, and the tick says so rather than pretending.
+each one's approval record, and a second signed tick publishes it.
 
 The Facebook Page and Instagram adapters are built against Meta's Graph API
 v26.0 and the publishing adapter contract (Module 16's, stubbed first as §20
@@ -77,6 +77,17 @@ bytes — and its token **expires after 60 days with no refresh token**. That
 expiry is read back from LinkedIn rather than assumed, and a signed daily tick
 at `/api/webhooks/social/tokens` warns on Slack inside the last seven days so a
 human can reconnect in time (§19).
+
+The publishing engine joins those three adapters to the calendar. Every
+pre-publish check — the approval record, the scheduled state, the previous
+attempt and the platform's own post id — runs inside one transaction, and the
+post id is checked first, so a retry can tell "already published" from "never
+published" instead of creating a second post. A rate limit or a network fault
+leaves the post scheduled for the next tick; a rejected token or a refused
+image fails it outright with the reason stored. Terminal failures are
+announced on Slack, because nothing retries them. Whether a publish was real
+or simulated is recorded **on the post**, so a post published in mock mode
+stays labelled that way even after a provider is switched on.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,
