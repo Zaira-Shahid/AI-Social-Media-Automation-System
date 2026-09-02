@@ -1,5 +1,7 @@
 import "server-only";
 
+import { NO_SOURCE_METRICS, SCHEDULING_WORKFLOW } from "@/lib/automation/schema";
+import { recordAutomationRun } from "@/lib/automation/store";
 import {
   canSchedule,
   checkScheduleTime,
@@ -152,4 +154,54 @@ export async function collectDuePosts(now: Date = new Date()): Promise<DueOutcom
     unapproved: unapproved.map((post) => post.id),
     posts: approved,
   };
+}
+
+/**
+ * `collectDuePosts`, instrumented for the Automation Control Center (§41,
+ * §63 Module 20/21).
+ *
+ * A separate function rather than instrumenting `collectDuePosts` itself:
+ * `runDuePublishing` (Publishing) also calls `collectDuePosts` internally,
+ * and recording a run there too would double-count every publish tick as a
+ * Scheduling run. This is what both `content/due`'s webhook and the
+ * Automation screen's manual "Run now" call instead.
+ */
+export async function runSchedulingCheck(
+  now: Date,
+  trigger: "WEBHOOK" | "MANUAL",
+): Promise<DueOutcome> {
+  const startedAt = now.toISOString();
+
+  try {
+    const outcome = await collectDuePosts(now);
+
+    await recordAutomationRun({
+      workflow: SCHEDULING_WORKFLOW,
+      status: outcome.unapproved.length > 0 ? "PARTIAL" : "SUCCESS",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error:
+        outcome.unapproved.length > 0
+          ? `${outcome.unapproved.length} due post(s) carry no approval record.`
+          : null,
+      trigger,
+      metrics: { due: outcome.due, unapproved: outcome.unapproved.length },
+    });
+
+    return outcome;
+  } catch (error) {
+    await recordAutomationRun({
+      workflow: SCHEDULING_WORKFLOW,
+      status: "FAILURE",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+      trigger,
+      metrics: {},
+    });
+
+    throw error;
+  }
 }

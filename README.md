@@ -34,6 +34,7 @@ run what exists today.
 | 18 — Weekly Performance Analysis | Complete ([plan](docs/module-18-plan.md)) |
 | 19 — AI Strategy Optimization | Complete ([plan](docs/module-19-plan.md)) |
 | 20 — Automation Control Center | Complete ([plan](docs/module-20-plan.md)) |
+| 21 — Audit Logs & Error Recovery | Complete ([plan](docs/module-21-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -152,6 +153,21 @@ cron configuration, so turning an automation "off" here means the endpoint
 declines to run its pipeline when asked, not that n8n stops asking, and
 "next run" is shown honestly as "configured in n8n" rather than a guessed
 countdown.
+
+The audit trail (`/automation/audit`) has been recorded since Module 01 —
+every login, approval, publish, sync and settings change — and is now
+readable for the first time, read-only and server-side only, same posture
+as every other operational collection. The Automation screen also gained
+each workflow's recent run history and a "Run now" button, which is this
+system's actual retry mechanism: calling the same function its own webhook
+calls, never a second implementation of it. A failed automation now alerts
+Slack automatically — centralized in one place so all nine workflows get it
+uniformly, rather than only Publishing having its own. What this module
+deliberately did **not** add: a way to retry a `FAILED` post in place.
+§17's transition table fixes `FAILED` with no way out, and
+`scheduleRefusal` already explains why — *"scheduling it again would hide
+why"* — so recovering a failed post means regenerating a fresh version and
+approving that, which already worked before this module and was left alone.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,
