@@ -3,14 +3,16 @@
  *
  *   npm run verify:services
  *
- * Confirms that the credentials in `.env.local` actually reach Firestore and
- * Cloudinary. This is deliberately NOT part of `npm run verify`: that gate
+ * Confirms that the credentials in `.env.local` actually reach Firestore,
+ * Cloudinary and — when it is configured live — Slack. This is deliberately
+ * NOT part of `npm run verify`: that gate
  * must stay offline and credential-free so it runs in CI, and it must never
  * be wired into /api/health, which is forbidden from making external calls
  * (§28).
  *
  * Standalone on purpose. The app's own helpers (`src/lib/firebase/admin.ts`,
- * `src/lib/cloudinary.ts`) are marked `server-only`, which is unimportable
+ * `src/lib/cloudinary.ts`, `src/lib/slack/api.ts`) are marked `server-only`,
+ * which is unimportable
  * from a plain Node script. What is being verified here is the contents of
  * the environment, not the app wiring — the test suite covers the wiring.
  *
@@ -80,10 +82,92 @@ async function checkCloudinary() {
   await cloudinary.api.ping();
 }
 
+/**
+ * Slack error codes are returned as HTTP 200 with `{"ok": false}` (see
+ * `src/lib/slack/api.ts`), so the body is the only success signal.
+ */
+async function slackCall(method, init = {}) {
+  const response = await fetch(`https://slack.com/api/${method}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}`,
+      "Content-Type": "application/json; charset=utf-8",
+      ...init.headers,
+    },
+  });
+
+  const body = await response.json();
+  if (!body.ok) {
+    const needed = body.needed ? ` (needs scope: ${body.needed})` : "";
+    throw new Error(`${method} refused: ${body.error}${needed}`);
+  }
+
+  return body;
+}
+
+/**
+ * Two probes, because the token being valid says nothing about the channel.
+ *
+ * `auth.test` confirms the token and reports which workspace it belongs to —
+ * the check that catches a token pasted from the wrong Slack app.
+ *
+ * Channel visibility is then probed by scheduling a message ten minutes out
+ * and immediately deleting it. `conversations.info` would be the obvious
+ * call, but it needs `channels:read`/`groups:read`, which this app has no
+ * other use for; the schedule/delete round-trip needs only `chat:write` and
+ * fails with the same codes the live notifier would hit — `channel_not_found`
+ * for a bad id, `not_in_channel` if the bot was never invited. Nothing is
+ * ever visible in the channel, so this is safe to run repeatedly.
+ */
+async function checkSlack() {
+  const channel = process.env.SLACK_NEWS_CHANNEL_ID;
+  const auth = await slackCall("auth.test", { method: "POST" });
+
+  const scheduled = await slackCall("chat.scheduleMessage", {
+    method: "POST",
+    body: JSON.stringify({
+      channel,
+      post_at: Math.floor(Date.now() / 1000) + 600,
+      text: "verify:services probe — deleted before it can post.",
+    }),
+  });
+
+  await slackCall("chat.deleteScheduledMessage", {
+    method: "POST",
+    body: JSON.stringify({ channel, scheduled_message_id: scheduled.scheduled_message_id }),
+  });
+
+  console.log(`      workspace "${auth.team}" as ${auth.user}, can post to ${channel}`);
+}
+
 const checks = [
   [`Firestore (Admin SDK write/read/delete on database ${DATABASE_ID})`, checkFirestore],
   ["Cloudinary (credentials ping)", checkCloudinary],
 ];
+
+/*
+ * Slack is optional: `SLACK_PROVIDER=mock` is a supported way to run the whole
+ * system, and failing a setup check over a service the operator has chosen not
+ * to wire up would be noise. Only a live provider is verified — but then the
+ * missing-variable case is a real failure, not a skip, because
+ * `getSlackTarget()` throws on exactly that (`src/lib/slack/index.ts`).
+ */
+if (process.env.SLACK_PROVIDER === "slack") {
+  const missingSlack = ["SLACK_BOT_TOKEN", "SLACK_NEWS_CHANNEL_ID"].filter(
+    (name) => !process.env[name],
+  );
+
+  checks.push([
+    "Slack (auth.test + channel visibility)",
+    missingSlack.length > 0
+      ? () => {
+          throw new Error(`SLACK_PROVIDER is "slack" but ${missingSlack.join(" and ")} is not set`);
+        }
+      : checkSlack,
+  ]);
+} else {
+  console.log(`SKIP  Slack (SLACK_PROVIDER=${process.env.SLACK_PROVIDER ?? "mock"})`);
+}
 
 let failed = false;
 
