@@ -50,6 +50,31 @@ const usingEmulators = Boolean(process.env.FIREBASE_AUTH_EMULATOR_HOST);
 const port = Number(process.env.E2E_PORT ?? (usingEmulators ? 3100 : 3000));
 const baseURL = `http://127.0.0.1:${port}`;
 
+/*
+ * Force every outbound integration to mock for the app under test (§58).
+ *
+ * `.env.local` is loaded above so webhook signatures match, and it carries
+ * whatever the developer has switched on for real work. The emulator run
+ * isolates Firebase and nothing else, so a real `SLACK_PROVIDER=slack` reached
+ * the app under test and the suite posted an actual shortlist to the team's
+ * workspace before this existed. §58 is explicit that tests must not touch
+ * live services, and "remember to set it back to mock" is not a mechanism.
+ *
+ * Every switch is listed, including ones no test exercises yet: the failure
+ * mode is silent and outward-facing, so a new provider must be opted *in* to
+ * reaching the network, never opted out.
+ */
+const MOCKED_PROVIDERS = {
+  SLACK_PROVIDER: "mock",
+  AI_PROVIDER: "mock",
+  FACEBOOK_PROVIDER: "mock",
+  INSTAGRAM_PROVIDER: "mock",
+  LINKEDIN_PROVIDER: "mock",
+} as const;
+
+// The Playwright process itself, for any test that imports server code.
+Object.assign(process.env, MOCKED_PROVIDERS);
+
 export default defineConfig({
   testDir: "./tests",
   timeout: 60_000,
@@ -68,6 +93,7 @@ export default defineConfig({
     timeout: 180_000,
     env: usingEmulators
       ? {
+          ...MOCKED_PROVIDERS,
           // The browser half of the SDK needs this at build time; the server
           // half reads FIREBASE_AUTH_EMULATOR_HOST from the inherited
           // environment on its own.
@@ -84,6 +110,6 @@ export default defineConfig({
           NEXT_DIST_DIR: ".next-e2e",
           PORT: String(port),
         }
-      : { PORT: String(port) },
+      : { ...MOCKED_PROVIDERS, PORT: String(port) },
   },
 });
