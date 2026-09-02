@@ -117,6 +117,18 @@ const serverEnvSchema = z.object({
   FACEBOOK_APP_SECRET: z.string().min(1).optional(),
 
   /*
+   * Instagram publishing (§19, §20, §21, §63 Module 13).
+   *
+   * Its own switch rather than a shared Meta one: the Page and the Instagram
+   * account are separate connections that can be turned on separately, and a
+   * single flag would mean enabling one silently enables the other.
+   *
+   * The app credentials are Facebook's — the Instagram account is reached
+   * through the Page (see `findInstagramAccount`), so there is no second app.
+   */
+  INSTAGRAM_PROVIDER: z.enum(["graph", "mock"]).default("mock"),
+
+  /*
    * Public base URL, used to build the links inside a Slack message.
    *
    * Defaulted rather than required so local development and the test runs

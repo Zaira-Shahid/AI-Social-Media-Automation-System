@@ -5,7 +5,9 @@ import { useFormStatus } from "react-dom";
 
 import {
   connectFacebook,
+  connectInstagram,
   disconnectFacebook,
+  disconnectInstagram,
   type ConnectFormState,
 } from "@/app/(app)/social-accounts/actions";
 import { PLATFORM_LABELS } from "@/components/post-status-badge";
@@ -82,24 +84,68 @@ function Message({ state }: { state: ConnectFormState }) {
 }
 
 /**
- * The Facebook connect form.
+ * What each Meta connect form needs to differ on.
+ *
+ * Facebook and Instagram connect through the same pasted-token exchange —
+ * Instagram is reached through the Page it is linked to — so one form serves
+ * both rather than two that drift apart. They stay separate *connections*
+ * though: disconnecting one leaves the other publishing.
+ */
+interface MetaConnectConfig {
+  connect: typeof connectFacebook;
+  disconnect: typeof disconnectFacebook;
+  /** The scopes to ask Meta for, named so the operator can check them. */
+  scopes: string;
+  /** What "connected" points at, in words. */
+  connectedNoun: string;
+  connectLabel: string;
+  hint: string;
+}
+
+const META_CONNECT: Partial<Record<AdapterCapability["platform"], MetaConnectConfig>> = {
+  FACEBOOK: {
+    connect: connectFacebook,
+    disconnect: disconnectFacebook,
+    scopes: "pages_show_list, pages_read_engagement and pages_manage_posts",
+    connectedNoun: "Page",
+    connectLabel: "Connect Page",
+    hint: "Leave blank to use the only Page the token administers.",
+  },
+  INSTAGRAM: {
+    connect: connectInstagram,
+    disconnect: disconnectInstagram,
+    scopes: "instagram_basic, instagram_content_publish, pages_show_list and pages_read_engagement",
+    connectedNoun: "Instagram user",
+    connectLabel: "Connect account",
+    hint: "The Page the Instagram professional account is linked to. Leave blank to use the only Page the token administers.",
+  },
+};
+
+/**
+ * The Meta connect form.
  *
  * A pasted user token rather than an OAuth redirect: the Meta app stays in
  * Development mode serving only accounts the company owns (Module −1's
  * finding), so there is no consumer login flow to run and no App Review to
- * pass. The exchange to a long-lived Page token happens on the server, which
- * is where the app secret is.
+ * pass. The exchange to a long-lived token happens on the server, which is
+ * where the app secret is.
  */
-function FacebookConnect({ connected }: { connected: SocialAccountView | undefined }) {
-  const [connectState, connect] = useActionState(connectFacebook, INITIAL);
-  const [disconnectState, disconnect] = useActionState(disconnectFacebook, INITIAL);
+function MetaConnect({
+  config,
+  connected,
+}: {
+  config: MetaConnectConfig;
+  connected: SocialAccountView | undefined;
+}) {
+  const [connectState, connect] = useActionState(config.connect, INITIAL);
+  const [disconnectState, disconnect] = useActionState(config.disconnect, INITIAL);
 
   if (connected) {
     return (
       <div className="mt-3 space-y-2">
         <p className="text-sm">
-          Connected to <span className="font-medium">{connected.accountName}</span> (Page{" "}
-          {connected.accountId}).
+          Connected to <span className="font-medium">{connected.accountName}</span> (
+          {config.connectedNoun} {connected.accountId}).
         </p>
 
         <p className="text-xs text-muted-foreground" data-testid="expiry">
@@ -124,37 +170,35 @@ function FacebookConnect({ connected }: { connected: SocialAccountView | undefin
   return (
     <form action={connect} className="mt-3 space-y-2">
       <div className="flex flex-col gap-1">
-        <label htmlFor="userToken" className="text-xs font-medium">
+        <label htmlFor={`userToken-${config.connectedNoun}`} className="text-xs font-medium">
           Meta user access token
         </label>
         <input
-          id="userToken"
+          id={`userToken-${config.connectedNoun}`}
           name="userToken"
           type="password"
           autoComplete="off"
           className="h-8 w-full max-w-lg rounded-lg border border-border bg-background px-2.5 text-sm"
         />
         <p className="text-xs text-muted-foreground">
-          Granted pages_show_list, pages_read_engagement and pages_manage_posts. It is exchanged
-          server-side for a long-lived Page token and stored encrypted; it is never shown again.
+          Granted {config.scopes}. It is exchanged server-side for a long-lived token and stored
+          encrypted; it is never shown again.
         </p>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="pageId" className="text-xs font-medium">
+        <label htmlFor={`pageId-${config.connectedNoun}`} className="text-xs font-medium">
           Page ID (optional)
         </label>
         <input
-          id="pageId"
+          id={`pageId-${config.connectedNoun}`}
           name="pageId"
           className="h-8 w-full max-w-xs rounded-lg border border-border bg-background px-2.5 text-sm"
         />
-        <p className="text-xs text-muted-foreground">
-          Leave blank to use the only Page the token administers.
-        </p>
+        <p className="text-xs text-muted-foreground">{config.hint}</p>
       </div>
 
-      <SubmitButton idle="Connect Page" busy="Connecting…" />
+      <SubmitButton idle={config.connectLabel} busy="Connecting…" />
 
       <Message state={connectState} />
     </form>
@@ -176,6 +220,7 @@ export function SocialAccountsScreen({
     <div className="mt-6 space-y-4">
       {capabilities.map((capability) => {
         const connected = byPlatform.get(capability.platform);
+        const metaConnect = META_CONNECT[capability.platform];
 
         return (
           <section
@@ -204,8 +249,8 @@ export function SocialAccountsScreen({
               </p>
             ) : null}
 
-            {capability.platform === "FACEBOOK" && canManage ? (
-              <FacebookConnect connected={connected} />
+            {canManage && metaConnect ? (
+              <MetaConnect config={metaConnect} connected={connected} />
             ) : null}
           </section>
         );
