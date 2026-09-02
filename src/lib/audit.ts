@@ -1,6 +1,7 @@
 import "server-only";
 
 import { FieldValue } from "firebase-admin/firestore";
+import { z } from "zod";
 
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { logger, redact } from "@/lib/logger";
@@ -85,6 +86,11 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
       .collection(AUDIT_COLLECTION)
       .add({
         ...buildAuditDocument(entry),
+        // `timestamp` (FieldValue.serverTimestamp()) is write-only bookkeeping,
+        // the same convention every other store here follows — nothing reads
+        // a Firestore server timestamp back. `occurredAt` is the explicit ISO
+        // string Module 21's screen actually orders and displays by.
+        occurredAt: new Date().toISOString(),
         timestamp: FieldValue.serverTimestamp(),
       });
   } catch (error) {
@@ -94,4 +100,46 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+/**
+ * A stored entry, for the audit log screen (spec §55, §63 Module 21).
+ *
+ * Loose on purpose: `action` is `z.string()`, not `z.enum(...)`, so a
+ * historical entry recorded under an action this file has since renamed (or
+ * a future one this file has not yet declared) still reads back rather than
+ * being silently dropped — the audit trail's whole point is that nothing in
+ * it goes missing.
+ */
+const storedAuditEntrySchema = z.object({
+  actor: z.string().min(1),
+  action: z.string().min(1),
+  resource: z.string().min(1),
+  status: z.enum(["SUCCESS", "FAILURE"]),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  occurredAt: z.string().datetime(),
+});
+
+export interface StoredAuditEntry extends AuditEntry {
+  id: string;
+  occurredAt: string;
+}
+
+/** Most recent audit entries first — the read model behind `/automation/audit`. */
+export async function listRecentAuditEntries(limit: number): Promise<StoredAuditEntry[]> {
+  const snapshot = await getAdminFirestore()
+    .collection(AUDIT_COLLECTION)
+    .orderBy("occurredAt", "desc")
+    .limit(limit)
+    .get();
+
+  return snapshot.docs
+    .map((document) => {
+      const parsed = storedAuditEntrySchema.safeParse(document.data());
+
+      if (!parsed.success) return null;
+
+      return { id: document.id, ...parsed.data } as StoredAuditEntry;
+    })
+    .filter((entry): entry is StoredAuditEntry => entry !== null);
 }
