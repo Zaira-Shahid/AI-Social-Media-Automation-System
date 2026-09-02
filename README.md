@@ -31,6 +31,7 @@ run what exists today.
 | 14 — LinkedIn Integration | Complete ([plan](docs/module-14-plan.md)) |
 | 16 — Publishing Engine | Complete ([plan](docs/module-16-plan.md)) |
 | 17 — Analytics Collection | Complete ([plan](docs/module-17-plan.md)) |
+| 18 — Weekly Performance Analysis | Complete ([plan](docs/module-18-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -103,8 +104,20 @@ mock-published post gets deterministic simulated analytics, labelled `MOCK`,
 and never touches a real credential or a real API call — §22's rule holds
 throughout: a number is either what the platform actually returned or the
 literal word `UNAVAILABLE`, never invented. Module 17 stores this in its own
-`analytics` collection with a small read model; the dashboard, trends and
-weekly comparisons that read it are Module 18.
+`analytics` collection with a small read model.
+
+Every week, a signed tick (`09_weekly_performance_analysis`) computes the
+trailing 7 days' performance: best and weakest posts, and platform, topic and
+format comparisons, all averaged only over posts Module 17 could actually
+measure — a post with no usable analytics is excluded from every average
+rather than counted as zero. One AI call then writes a short narrative and up
+to six recommended changes, grounded only in those already-computed numbers,
+and is skipped outright rather than invented when a week has nothing
+measured to say. The Analytics screen (`/analytics`) reads the saved report:
+overall performance, platform/topic/format comparison, top and weak posts,
+and the engagement trend across recent weeks. Module 18 stops at reporting
+what happened — the strategy recommendations that act on it, with versioning
+and evidence citations, are Module 19.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,

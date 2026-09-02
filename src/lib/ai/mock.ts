@@ -52,6 +52,8 @@ function buildMockResponse(request: CompletionRequest): unknown {
       return buildCoreMessage(request);
     case "content_platform_versions":
       return buildPlatformVersions(request);
+    case "weekly_performance_narrative":
+      return buildPerformanceNarrative(request);
     default:
       throw new Error(
         `The mock provider has no response for schema "${request.schemaName}". ` +
@@ -140,5 +142,23 @@ function buildPlatformVersions(request: CompletionRequest): unknown {
         emphasis: "PRIMARY",
       },
     })),
+  };
+}
+
+/**
+ * Echoes back the post count the prompt carried rather than inventing a
+ * pattern — a mock report should announce itself as simulated, never as an
+ * analysis of numbers it never looked at (§21, §67).
+ */
+function buildPerformanceNarrative(request: CompletionRequest): unknown {
+  const postsAnalyzed = request.prompt.match(/^Posts analyzed:\s*(\d+)/m)?.[1] ?? "0";
+
+  return {
+    engagementPatterns:
+      `Simulated analysis — no AI provider was called. The prompt carried ${postsAnalyzed} ` +
+      "measured post(s) for this window.",
+    recommendedChanges: [
+      "Simulated recommendation — set AI_PROVIDER to generate a real one.",
+    ],
   };
 }
