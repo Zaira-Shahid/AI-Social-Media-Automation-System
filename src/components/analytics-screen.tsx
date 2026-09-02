@@ -154,7 +154,7 @@ export function AnalyticsScreen({
                 ["Weak topic", report.weakTopic ?? "—"],
                 ["Best format", report.bestFormat ? labelFor(report.bestFormat) : "—"],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-md border p-3">
+                <div key={label} className="rounded-md border border-border bg-card p-3">
                   <dt className="text-xs text-muted-foreground">{label}</dt>
                   <dd className="mt-1 text-sm font-medium">{value}</dd>
                 </div>

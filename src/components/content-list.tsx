@@ -284,7 +284,7 @@ function PlatformCard({
   const open = canEditCopy(post.status);
 
   return (
-    <div className="rounded-lg border border-border p-4" data-testid="platform-post">
+    <div className="rounded-lg border border-border bg-card p-4" data-testid="platform-post">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold">
           {PLATFORM_LABELS[post.platform] ?? post.platform}

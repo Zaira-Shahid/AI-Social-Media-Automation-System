@@ -82,7 +82,7 @@ export default async function NewsPage({
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-semibold">News</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">News</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Ranked stories, highest scoring first. A human picks the final three — the ranking never
         does.

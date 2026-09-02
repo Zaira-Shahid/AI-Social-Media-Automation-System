@@ -70,7 +70,7 @@ function AutomationRow({ automation }: { automation: AutomationStatusView }) {
   const [runState, runAction] = useActionState(runAutomationNow, RUN_INITIAL);
 
   return (
-    <li className="rounded-md border p-4">
+    <li className="rounded-md border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">

@@ -316,7 +316,7 @@ export function SocialAccountsScreen({
         return (
           <section
             key={capability.platform}
-            className="rounded-lg border border-border p-4"
+            className="rounded-lg border border-border bg-card p-4"
             data-testid="social-account"
             data-platform={capability.platform}
           >

@@ -104,8 +104,8 @@ export function MainNav({ role }: { role: Role | null }) {
                   className={cn(
                     BASE_ITEM,
                     active
-                      ? "bg-muted font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "bg-primary/10 font-medium text-primary"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   )}
                 >
                   <Icon className="size-4" aria-hidden="true" />

@@ -52,7 +52,7 @@ function Field({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mt-8 space-y-4 rounded-lg border border-border p-4">
+    <section className="mt-8 space-y-4 rounded-lg border border-border bg-card p-4">
       <h2 className="text-sm font-semibold">{title}</h2>
       {children}
     </section>
