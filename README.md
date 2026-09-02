@@ -28,7 +28,7 @@ run what exists today.
 | 11 — Scheduling Engine | Complete ([plan](docs/module-11-plan.md)) |
 | 12 — Facebook Integration | Complete ([plan](docs/module-12-plan.md)) |
 | 13 — Instagram Integration | Complete ([plan](docs/module-13-plan.md)) |
-| 14 — LinkedIn Integration | In progress ([plan](docs/module-14-plan.md)) |
+| 14 — LinkedIn Integration | Complete ([plan](docs/module-14-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
