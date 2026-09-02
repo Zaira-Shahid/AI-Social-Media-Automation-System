@@ -4,6 +4,7 @@ import type { Platform } from "@/lib/content/schema";
 import { getServerEnv } from "@/lib/env.server";
 import type { AdapterCapability, ProviderAdapter } from "@/lib/publishing/adapter";
 import { FacebookAdapter } from "@/lib/publishing/facebook";
+import { InstagramAdapter } from "@/lib/publishing/instagram";
 import { MockPublishAdapter } from "@/lib/publishing/mock";
 
 /**
@@ -20,20 +21,29 @@ import { MockPublishAdapter } from "@/lib/publishing/mock";
 
 const NOT_BUILT_YET: Record<Platform, string> = {
   FACEBOOK: "",
-  INSTAGRAM: "The Instagram integration is Module 13.",
+  INSTAGRAM: "",
   LINKEDIN: "The LinkedIn integration is Module 14.",
 };
 
 export function getAdapter(platform: Platform): ProviderAdapter {
-  if (platform === "FACEBOOK" && getServerEnv().FACEBOOK_PROVIDER === "graph") {
-    return new FacebookAdapter();
-  }
+  const env = getServerEnv();
 
   if (platform === "FACEBOOK") {
-    return new MockPublishAdapter(
-      platform,
-      "FACEBOOK_PROVIDER is 'mock', so nothing reaches the Page. Set it to 'graph' to publish for real.",
-    );
+    return env.FACEBOOK_PROVIDER === "graph"
+      ? new FacebookAdapter()
+      : new MockPublishAdapter(
+          platform,
+          "FACEBOOK_PROVIDER is 'mock', so nothing reaches the Page. Set it to 'graph' to publish for real.",
+        );
+  }
+
+  if (platform === "INSTAGRAM") {
+    return env.INSTAGRAM_PROVIDER === "graph"
+      ? new InstagramAdapter()
+      : new MockPublishAdapter(
+          platform,
+          "INSTAGRAM_PROVIDER is 'mock', so nothing reaches the account. Set it to 'graph' to publish for real.",
+        );
   }
 
   return new MockPublishAdapter(platform, NOT_BUILT_YET[platform]);

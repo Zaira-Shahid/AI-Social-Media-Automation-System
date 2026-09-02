@@ -27,6 +27,7 @@ run what exists today.
 | 10 — Social Media Calendar | Complete ([plan](docs/module-10-plan.md)) |
 | 11 — Scheduling Engine | Complete ([plan](docs/module-11-plan.md)) |
 | 12 — Facebook Integration | Complete ([plan](docs/module-12-plan.md)) |
+| 13 — Instagram Integration | Complete ([plan](docs/module-13-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -48,13 +49,21 @@ account within fifteen minutes. An n8n tick reports what is due and verifies
 each one's approval record. Nothing publishes yet — the publishing engine is
 Module 16, and the tick says so rather than pretending.
 
-The Facebook Page adapter is built against Meta's Graph API v26.0 and the
-publishing adapter contract (Module 16's, stubbed first as §20 requires).
-OAuth tokens are stored encrypted with AES-256-GCM and are never shown, logged
-or readable by any client. `FACEBOOK_PROVIDER` defaults to `mock`, so nothing
-reaches a real Page until it is set deliberately, and the Social Accounts
-screen says REAL, MOCK or which module still owes the integration rather than
-showing everything as "Not connected".
+The Facebook Page and Instagram adapters are built against Meta's Graph API
+v26.0 and the publishing adapter contract (Module 16's, stubbed first as §20
+requires). Instagram publishes in two steps — a media container, then a
+publish once Meta reports it finished — and accepts JPEG only, which is why
+Module 08 already stores that card as JPEG. OAuth tokens are stored encrypted
+with AES-256-GCM and are never shown, logged or readable by any client.
+`FACEBOOK_PROVIDER` and `INSTAGRAM_PROVIDER` each default to `mock` and are
+separate switches, so nothing reaches a real account until one is set
+deliberately, and the Social Accounts screen says REAL, MOCK or which module
+still owes the integration rather than showing everything as "Not connected".
+
+The Instagram account is reached **through** the Page it is linked to, so there
+is no second Meta app — but it is a separate connection, and disconnecting one
+leaves the other publishing. The account must be a Professional (Business or
+Creator) account; a personal account has no API access at all.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,

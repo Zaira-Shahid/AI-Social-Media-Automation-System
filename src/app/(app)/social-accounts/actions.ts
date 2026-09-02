@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/auth/current-user";
 import { getServerEnv } from "@/lib/env.server";
 import { logger } from "@/lib/logger";
 import { exchangeForLongLivedUserToken, listPages } from "@/lib/publishing/facebook";
+import { findInstagramAccount } from "@/lib/publishing/instagram";
 import { encryptToken } from "@/lib/social/crypto";
 import { deleteSocialAccount, saveSocialAccount } from "@/lib/social/store";
 
@@ -155,4 +156,140 @@ export async function disconnectFacebook(
   revalidatePath("/social-accounts");
 
   return { status: "success", message: "Disconnected. Nothing can publish to the Page now." };
+}
+
+/**
+ * Connect the Instagram professional account behind a Page (§19, §42, §56).
+ *
+ * Same shape as the Facebook connect, and deliberately so — but a separate
+ * connection, not a side effect of the Facebook one. The two accounts are
+ * disconnected independently, and publishing to one must never depend on the
+ * other still being connected.
+ *
+ * The Page token is what publishes: Meta reaches the Instagram account
+ * through the Page it is linked to, so the credential stored here is the Page
+ * token paired with the **Instagram** user id.
+ */
+export async function connectInstagram(
+  previous: ConnectFormState,
+  form: FormData,
+): Promise<ConnectFormState> {
+  void previous;
+
+  const user = await requirePermission("integrations:manage");
+  const env = getServerEnv();
+
+  const userToken = String(form.get("userToken") ?? "").trim();
+  const pageId = String(form.get("pageId") ?? "").trim();
+
+  if (!userToken) {
+    return { status: "error", message: "Paste the user access token from Meta first." };
+  }
+
+  if (!env.FACEBOOK_APP_ID || !env.FACEBOOK_APP_SECRET) {
+    return {
+      status: "error",
+      message:
+        "FACEBOOK_APP_ID and FACEBOOK_APP_SECRET are not set, so the token cannot be exchanged for a long-lived one.",
+    };
+  }
+
+  try {
+    const longLived = await exchangeForLongLivedUserToken(
+      env.FACEBOOK_APP_ID,
+      env.FACEBOOK_APP_SECRET,
+      userToken,
+    );
+
+    const pages = await listPages(longLived.accessToken);
+
+    if (pages.length === 0) {
+      return {
+        status: "error",
+        message:
+          "That token administers no Pages. Instagram publishing goes through the Page its account is linked to, so a Page is required.",
+      };
+    }
+
+    const page = pageId ? pages.find((candidate) => candidate.id === pageId) : pages[0];
+
+    if (!page) {
+      return {
+        status: "error",
+        message: `That token administers ${pages.length} Page(s), and none of them is ${pageId}.`,
+      };
+    }
+
+    const account = await findInstagramAccount(page.id, page.name, page.accessToken);
+
+    await saveSocialAccount({
+      platform: "INSTAGRAM",
+      // The IG user id, not the Page id: this is what publishing posts to.
+      accountId: account.id,
+      accountName: `@${account.username} (via ${account.pageName})`,
+      accessTokenEncrypted: encryptToken(page.accessToken),
+      refreshTokenEncrypted: null,
+      /*
+       * Null for the same reason as Facebook: this is a long-lived Page
+       * token, which Meta documents as having no expiration date. A
+       * fabricated countdown would be worse than none (§67).
+       */
+      expiresAt: null,
+      lastRefreshedAt: new Date().toISOString(),
+      status: "VALID",
+      connectedAt: new Date().toISOString(),
+      connectedBy: user.uid,
+      lastError: null,
+    });
+
+    await recordAudit({
+      actor: user.uid,
+      action: "SETTINGS_CHANGED",
+      resource: "socialAccounts/INSTAGRAM",
+      status: "SUCCESS",
+      // The account, never the token (§19, §55).
+      metadata: { instagramUserId: account.id, username: account.username, pageId: page.id },
+    });
+
+    revalidatePath("/social-accounts");
+
+    return { status: "success", message: `Connected @${account.username}.` };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    logger.error("Could not connect the Instagram account", { error: message });
+
+    await recordAudit({
+      actor: user.uid,
+      action: "SETTINGS_CHANGED",
+      resource: "socialAccounts/INSTAGRAM",
+      status: "FAILURE",
+    });
+
+    return { status: "error", message };
+  }
+}
+
+export async function disconnectInstagram(
+  previous: ConnectFormState,
+  form: FormData,
+): Promise<ConnectFormState> {
+  void previous;
+  void form;
+
+  const user = await requirePermission("integrations:manage");
+
+  await deleteSocialAccount("INSTAGRAM");
+
+  await recordAudit({
+    actor: user.uid,
+    action: "SETTINGS_CHANGED",
+    resource: "socialAccounts/INSTAGRAM",
+    status: "SUCCESS",
+    metadata: { disconnected: true },
+  });
+
+  revalidatePath("/social-accounts");
+
+  return { status: "success", message: "Disconnected. Nothing can publish to the account now." };
 }

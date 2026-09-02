@@ -158,6 +158,12 @@ describe("socialAccounts rules", () => {
     const db = testEnv.unauthenticatedContext().firestore();
     await assertFails(getDoc(doc(db, "socialAccounts/FACEBOOK")));
   });
+
+  it("denies the Instagram credential too, not just the one that was tested first", async () => {
+    const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
+    await assertFails(getDoc(doc(db, "socialAccounts/INSTAGRAM")));
+    await assertFails(setDoc(doc(db, "socialAccounts/INSTAGRAM"), { accountId: "123" }));
+  });
 });
 
 describe("brand profile rules", () => {
