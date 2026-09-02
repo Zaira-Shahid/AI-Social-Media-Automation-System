@@ -382,11 +382,22 @@ export async function runDuePublishing(now: Date = new Date()): Promise<PublishR
     // this write is bookkeeping about the run, not a second effect of it.
     await recordAutomationRun({
       workflow: PUBLISHING_WORKFLOW,
-      status: result.failed > 0 && result.published === 0 ? "FAILURE" : result.failed > 0 ? "PARTIAL" : "SUCCESS",
+      status:
+        result.failed > 0 && result.published === 0
+          ? "FAILURE"
+          : result.failed > 0
+            ? "PARTIAL"
+            : "SUCCESS",
       startedAt,
       finishedAt: new Date().toISOString(),
       ...NO_SOURCE_METRICS,
-      error: failures.length > 0 ? failures.map((f) => f.reason).join("; ").slice(0, 500) : null,
+      error:
+        failures.length > 0
+          ? failures
+              .map((f) => f.reason)
+              .join("; ")
+              .slice(0, 500)
+          : null,
       trigger: "WEBHOOK",
       metrics: {
         due: result.due,

@@ -21,7 +21,12 @@ import {
   SHORTLIST_MAX,
   SHORTLIST_SCORE_FLOOR,
 } from "@/lib/news/scoring";
-import { listItemsForRanking, listSources, saveRanking, type StoredNewsItem } from "@/lib/news/store";
+import {
+  listItemsForRanking,
+  listSources,
+  saveRanking,
+  type StoredNewsItem,
+} from "@/lib/news/store";
 
 /**
  * News ranking and shortlist generation (spec §7, §8, §45).

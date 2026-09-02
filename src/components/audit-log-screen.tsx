@@ -23,7 +23,11 @@ function StatusBadge({ status }: { status: "SUCCESS" | "FAILURE" }) {
 
 export function AuditLogScreen({ entries }: { entries: StoredAuditEntry[] }) {
   if (entries.length === 0) {
-    return <p className="mt-4 text-sm text-muted-foreground">No audited actions have been recorded yet.</p>;
+    return (
+      <p className="mt-4 text-sm text-muted-foreground">
+        No audited actions have been recorded yet.
+      </p>
+    );
   }
 
   return (

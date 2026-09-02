@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { isWorkflowEnabled } from "@/lib/automation/gate";
-import { CONTENT_GENERATION_WORKFLOW, runContentGeneration, GenerationError } from "@/lib/content/generate";
+import {
+  CONTENT_GENERATION_WORKFLOW,
+  runContentGeneration,
+  GenerationError,
+} from "@/lib/content/generate";
 import { getServerEnv } from "@/lib/env.server";
 import { logger } from "@/lib/logger";
 import { SIGNATURE_HEADER, TIMESTAMP_HEADER, verifySignature } from "@/lib/webhooks/signature";

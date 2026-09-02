@@ -159,9 +159,7 @@ function buildPerformanceNarrative(request: CompletionRequest): unknown {
     engagementPatterns:
       `Simulated analysis — no AI provider was called. The prompt carried ${postsAnalyzed} ` +
       "measured post(s) for this window.",
-    recommendedChanges: [
-      "Simulated recommendation — set AI_PROVIDER to generate a real one.",
-    ],
+    recommendedChanges: ["Simulated recommendation — set AI_PROVIDER to generate a real one."],
   };
 }
 

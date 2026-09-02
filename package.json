@@ -23,7 +23,8 @@
     "provision:user": "node --env-file=.env.local scripts/provision-user.mjs",
     "test:e2e:auth": "firebase emulators:exec --only auth,firestore \"npm run e2e:auth\"",
     "e2e:auth": "node --env-file=.env.local scripts/seed-e2e-user.mjs && playwright test tests/e2e-auth",
-    "seed:sources": "node --env-file=.env.local scripts/seed-news-sources.mjs"
+    "seed:sources": "node --env-file=.env.local scripts/seed-news-sources.mjs",
+    "seed:brand": "node --env-file=.env.local scripts/seed-brand-profile.mjs"
   },
   "repository": {
     "type": "git",

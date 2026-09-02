@@ -274,13 +274,22 @@ export async function runContentGeneration(actor: string): Promise<GenerationOut
 
     await recordAutomationRun({
       workflow: CONTENT_GENERATION_WORKFLOW,
-      status: outcome.status === "FAILED" ? "FAILURE" : outcome.status === "PARTIAL" ? "PARTIAL" : "SUCCESS",
+      status:
+        outcome.status === "FAILED"
+          ? "FAILURE"
+          : outcome.status === "PARTIAL"
+            ? "PARTIAL"
+            : "SUCCESS",
       startedAt,
       finishedAt: new Date().toISOString(),
       ...NO_SOURCE_METRICS,
       error: outcome.problems.length > 0 ? outcome.problems.join("; ").slice(0, 500) : null,
       trigger,
-      metrics: { stories: outcome.stories, posts: outcome.posts, problems: outcome.problems.length },
+      metrics: {
+        stories: outcome.stories,
+        posts: outcome.posts,
+        problems: outcome.problems.length,
+      },
     });
 
     return outcome;

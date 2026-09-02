@@ -45,7 +45,10 @@ function formatWeights(groups: WeightedGroup[], label: string): string {
   if (groups.length === 0) return `${label}: no measured data.`;
 
   return groups
-    .map((group) => `${group.key}: ${group.weight}% of measured engagement (${group.postsAnalyzed} post(s))`)
+    .map(
+      (group) =>
+        `${group.key}: ${group.weight}% of measured engagement (${group.postsAnalyzed} post(s))`,
+    )
     .join("\n");
 }
 
@@ -102,7 +105,9 @@ async function recommend(
   const envelope = strategyRecommendationsEnvelopeSchema.safeParse(result.data);
 
   if (!envelope.success) {
-    throw new Error(`Strategy recommendations failed validation: ${envelope.error.issues[0]?.message}`);
+    throw new Error(
+      `Strategy recommendations failed validation: ${envelope.error.issues[0]?.message}`,
+    );
   }
 
   const recommendations: StrategyRecommendation[] = [];

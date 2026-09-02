@@ -70,7 +70,7 @@ function AutomationRow({ automation }: { automation: AutomationStatusView }) {
   const [runState, runAction] = useActionState(runAutomationNow, RUN_INITIAL);
 
   return (
-    <li className="rounded-md border p-4">
+    <li className="rounded-md border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -78,7 +78,9 @@ function AutomationRow({ automation }: { automation: AutomationStatusView }) {
             <span
               className={cn(
                 "rounded-md px-1.5 py-0.5 text-xs font-medium",
-                automation.enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                automation.enabled
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground",
               )}
             >
               {automation.enabled ? "ON" : "OFF"}
@@ -90,7 +92,8 @@ function AutomationRow({ automation }: { automation: AutomationStatusView }) {
               <div className="flex items-center gap-2">
                 <StatusBadge status={automation.lastRun.status} />
                 <span className="text-muted-foreground">
-                  {new Date(automation.lastRun.finishedAt).toLocaleString()} · {automation.lastRun.trigger}
+                  {new Date(automation.lastRun.finishedAt).toLocaleString()} ·{" "}
+                  {automation.lastRun.trigger}
                 </span>
               </div>
               {automation.lastRun.error ? (
@@ -102,7 +105,9 @@ function AutomationRow({ automation }: { automation: AutomationStatusView }) {
           )}
 
           {/* §65: honest rather than guessed — this app has no visibility into n8n's cron config. */}
-          <p className="mt-2 text-xs text-muted-foreground">Next run: configured in n8n, not tracked here.</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Next run: configured in n8n, not tracked here.
+          </p>
 
           {automation.recentRuns.length > 0 ? (
             <details className="mt-2">

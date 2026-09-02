@@ -72,13 +72,20 @@ function PostList({ title, posts }: { title: string; posts: RankedPost[] }) {
                 {labelFor(post.platform)}
               </span>{" "}
               {post.permalink ? (
-                <a href={post.permalink} target="_blank" rel="noreferrer" className="hover:underline">
+                <a
+                  href={post.permalink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:underline"
+                >
                   {post.sourceTitle}
                 </a>
               ) : (
                 post.sourceTitle
               )}{" "}
-              <span className="text-muted-foreground">— {post.engagement.toFixed(1)} engagement</span>
+              <span className="text-muted-foreground">
+                — {post.engagement.toFixed(1)} engagement
+              </span>
             </li>
           ))}
         </ul>
@@ -149,12 +156,15 @@ export function AnalyticsScreen({
             <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {[
                 ["Best platform", report.bestPlatform ? labelFor(report.bestPlatform) : "—"],
-                ["Weakest platform", report.weakestPlatform ? labelFor(report.weakestPlatform) : "—"],
+                [
+                  "Weakest platform",
+                  report.weakestPlatform ? labelFor(report.weakestPlatform) : "—",
+                ],
                 ["Best topic", report.bestTopic ?? "—"],
                 ["Weak topic", report.weakTopic ?? "—"],
                 ["Best format", report.bestFormat ? labelFor(report.bestFormat) : "—"],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-md border p-3">
+                <div key={label} className="rounded-md border border-border bg-card p-3">
                   <dt className="text-xs text-muted-foreground">{label}</dt>
                   <dd className="mt-1 text-sm font-medium">{value}</dd>
                 </div>

@@ -49,18 +49,41 @@ const PUBLIC_PATHS = ["/login", "/forbidden"];
  * silently blocking the emulator request. This flag is never set outside
  * local development and the emulator-backed test run (§58), so it never
  * widens what a deployed environment allows.
+ *
+ * `'unsafe-eval'` in `script-src` is the same shape of exception, found the
+ * same way — not by inspection, by someone actually running `next dev` and
+ * hitting a console error: "eval() is not supported in this environment...
+ * React requires eval() in development mode for various debugging
+ * features." React's Fast Refresh genuinely calls `eval()` in dev; the
+ * `npm run start` build this policy was first verified against never does
+ * (React's own message says so), which is why the manual and e2e checks
+ * both missed it. Gated on `process.env.NODE_ENV === "development"` — set
+ * only by the Next.js CLI itself (`next dev`), never by a `NEXT_PUBLIC_*`
+ * value or anything a client or a misdirected request could influence — so
+ * a deployed `next build && next start`, which always runs with
+ * `NODE_ENV=production`, is unaffected regardless of what else is set.
  */
 function contentSecurityPolicy(nonce: string): string {
   const emulatorHost = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_HOST;
-  const connectSrc = ["'self'", "https://identitytoolkit.googleapis.com", "https://securetoken.googleapis.com"];
+  const connectSrc = [
+    "'self'",
+    "https://identitytoolkit.googleapis.com",
+    "https://securetoken.googleapis.com",
+  ];
 
   if (emulatorHost) {
     connectSrc.push(`http://${emulatorHost}:9099`, `http://${emulatorHost}:8080`);
   }
 
+  const scriptSrc = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'"];
+
+  if (process.env.NODE_ENV === "development") {
+    scriptSrc.push("'unsafe-eval'");
+  }
+
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    `script-src ${scriptSrc.join(" ")}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https://res.cloudinary.com",
     "font-src 'self' data:",

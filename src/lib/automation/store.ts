@@ -54,14 +54,22 @@ async function alertOnFailure(run: AutomationRun): Promise<void> {
     await notifier.post(channel, {
       text: `${run.workflow} failed`,
       blocks: [
-        { type: "header", text: { type: "plain_text", text: `Automation failed: ${run.workflow}` } },
+        {
+          type: "header",
+          text: { type: "plain_text", text: `Automation failed: ${run.workflow}` },
+        },
         {
           type: "section",
           text: { type: "mrkdwn", text: run.error ?? "No error detail was recorded." },
         },
         {
           type: "context",
-          elements: [{ type: "mrkdwn", text: "See Automation in the app for run history and a manual re-run." }],
+          elements: [
+            {
+              type: "mrkdwn",
+              text: "See Automation in the app for run history and a manual re-run.",
+            },
+          ],
         },
       ],
     });
@@ -170,7 +178,11 @@ export async function setAutomationEnabled(
   enabled: boolean,
   actor: string,
 ): Promise<void> {
-  const setting: AutomationSetting = { enabled, updatedBy: actor, updatedAt: new Date().toISOString() };
+  const setting: AutomationSetting = {
+    enabled,
+    updatedBy: actor,
+    updatedAt: new Date().toISOString(),
+  };
 
   await settings().doc(workflow).set(setting);
 

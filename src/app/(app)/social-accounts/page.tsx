@@ -43,7 +43,7 @@ export default async function SocialAccountsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Social Accounts</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Social Accounts</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Which platforms this system can actually post to, and which account each one posts as.
         Access tokens are encrypted at rest and are never shown here.

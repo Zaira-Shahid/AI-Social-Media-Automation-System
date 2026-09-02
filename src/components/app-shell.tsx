@@ -4,25 +4,36 @@ import { roleLabel } from "@/lib/auth/roles";
 import type { SessionUser } from "@/lib/auth/session";
 
 /**
- * Authenticated application shell.
+ * Authenticated application shell (chore/dashboard-redesign).
  *
  * The navigation itself lives in `main-nav.tsx`, which is a client component
  * because it highlights the active route. Everything here stays on the
  * server so the session user is never serialized further than it needs to be.
+ *
+ * The sidebar uses its own `--sidebar` tokens rather than the page
+ * background, so it reads as a distinct panel instead of a border floating
+ * in the same color as the content beside it.
  */
 export function AppShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-border p-4">
-        <div className="mb-6 px-2">
-          <p className="text-sm font-semibold">AI Social Media</p>
-          <p className="text-xs text-muted-foreground">Command Center</p>
+    <div className="flex min-h-screen bg-background">
+      <aside className="flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+        <div className="flex h-16 items-center border-b border-sidebar-border px-5">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+            A
+          </div>
+          <div className="ml-2.5 min-w-0">
+            <p className="truncate text-sm font-semibold">AI Social Media</p>
+            <p className="truncate text-xs text-muted-foreground">Command Center</p>
+          </div>
         </div>
 
-        <MainNav role={user.role} />
+        <div className="flex-1 overflow-y-auto px-3 py-4">
+          <MainNav role={user.role} />
+        </div>
 
-        <div className="mt-6 border-t border-border pt-4">
-          <div className="mb-2 px-2">
+        <div className="border-t border-sidebar-border p-3">
+          <div className="mb-2.5 rounded-md px-2 py-1.5">
             <p className="truncate text-xs font-medium" title={user.email ?? undefined}>
               {user.email ?? user.uid}
             </p>
@@ -40,7 +51,7 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
         </div>
       </aside>
 
-      <main className="flex-1 p-8">{children}</main>
+      <main className="flex-1 overflow-y-auto p-8">{children}</main>
     </div>
   );
 }

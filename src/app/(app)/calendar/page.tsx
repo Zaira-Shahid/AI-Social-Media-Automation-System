@@ -87,7 +87,7 @@ export default async function CalendarPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Calendar</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         What is scheduled, per platform and per day. Scheduling itself is Module 11 — this screen
         reads the plan, it does not change it.

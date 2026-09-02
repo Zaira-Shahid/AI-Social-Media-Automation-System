@@ -108,3 +108,52 @@ export function roleLabel(role: Role): string {
     .map((word) => word[0].toUpperCase() + word.slice(1))
     .join(" ");
 }
+
+/** Human label for a permission's category (the part before the colon), for display only. */
+const CATEGORY_LABELS: Record<string, string> = {
+  users: "Users",
+  brand: "Brand",
+  integrations: "Integrations",
+  automations: "Automations",
+  settings: "Settings",
+  sources: "Sources",
+  news: "News",
+  content: "Content",
+  analytics: "Analytics",
+  strategy: "Strategy",
+};
+
+export interface PermissionGroup {
+  category: string;
+  permissions: readonly Permission[];
+}
+
+/**
+ * A role's permissions grouped by their own category prefix (§27's "users:manage",
+ * "content:edit", …), for the Dashboard's access summary.
+ *
+ * The grouping is read off the permission strings themselves, not a second
+ * taxonomy declared here — there is exactly one place a permission's
+ * category can drift from this list, and it is `PERMISSIONS` above.
+ */
+export function groupedPermissionsFor(role: Role): PermissionGroup[] {
+  const groups = new Map<string, Permission[]>();
+
+  for (const permission of permissionsFor(role)) {
+    const [category] = permission.split(":");
+    const list = groups.get(category) ?? [];
+    list.push(permission);
+    groups.set(category, list);
+  }
+
+  // PERMISSIONS' own order, so the groups read in one stable, meaningful
+  // order rather than whatever order a Map happens to iterate in.
+  const order = [...new Set(PERMISSIONS.map((permission) => permission.split(":")[0]))];
+
+  return order
+    .filter((category) => groups.has(category))
+    .map((category) => ({
+      category: CATEGORY_LABELS[category] ?? category,
+      permissions: groups.get(category)!,
+    }));
+}

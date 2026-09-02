@@ -76,7 +76,7 @@ export default async function NewsItemPage({ params }: { params: Promise<{ id: s
         ) : null}
       </div>
 
-      <h1 className="mt-2 text-2xl font-semibold">{item.title}</h1>
+      <h1 className="mt-2 text-2xl font-semibold tracking-tight">{item.title}</h1>
 
       <p className="mt-2 text-sm text-muted-foreground">
         {item.sourceName} · {formatDate(item.publishedAt)}

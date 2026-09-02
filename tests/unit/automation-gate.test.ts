@@ -21,13 +21,21 @@ beforeEach(() => {
 
 describe("isWorkflowEnabled", () => {
   it("is true when the store says enabled", async () => {
-    getAutomationSetting.mockResolvedValue({ enabled: true, updatedBy: "uid-1", updatedAt: "2026-09-02T00:00:00.000Z" });
+    getAutomationSetting.mockResolvedValue({
+      enabled: true,
+      updatedBy: "uid-1",
+      updatedAt: "2026-09-02T00:00:00.000Z",
+    });
 
     expect(await isWorkflowEnabled("01_daily_news_discovery")).toBe(true);
   });
 
   it("is false once an ADMIN has turned it off", async () => {
-    getAutomationSetting.mockResolvedValue({ enabled: false, updatedBy: "uid-1", updatedAt: "2026-09-02T00:00:00.000Z" });
+    getAutomationSetting.mockResolvedValue({
+      enabled: false,
+      updatedBy: "uid-1",
+      updatedAt: "2026-09-02T00:00:00.000Z",
+    });
 
     expect(await isWorkflowEnabled("01_daily_news_discovery")).toBe(false);
   });

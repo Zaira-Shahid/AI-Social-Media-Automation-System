@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { ROLES, can, permissionsFor, roleLabel, roleSchema } from "@/lib/auth/roles";
+import {
+  ROLES,
+  can,
+  groupedPermissionsFor,
+  permissionsFor,
+  roleLabel,
+  roleSchema,
+} from "@/lib/auth/roles";
 
 /**
  * Permission matrix tests (spec §27, §58).
@@ -81,5 +88,43 @@ describe("roles", () => {
   it("labels roles for display", () => {
     expect(roleLabel("ADMIN")).toBe("Admin");
     expect(roleLabel("SOCIAL_MANAGER")).toBe("Social Manager");
+  });
+
+  /**
+   * The Dashboard's grouped access summary (§35, chore/dashboard-redesign).
+   */
+  describe("groupedPermissionsFor", () => {
+    it("groups every permission a role holds under its own category prefix", () => {
+      const groups = groupedPermissionsFor("SOCIAL_MANAGER");
+
+      expect(groups).toEqual([
+        { category: "Content", permissions: permissionsFor("SOCIAL_MANAGER") },
+      ]);
+    });
+
+    it("never drops or duplicates a permission across groups", () => {
+      for (const role of ROLES) {
+        const groups = groupedPermissionsFor(role);
+        const flattened = groups.flatMap((group) => group.permissions);
+
+        expect(flattened.sort()).toEqual([...permissionsFor(role)].sort());
+      }
+    });
+
+    it("orders groups by where their category first appears in PERMISSIONS, not alphabetically", () => {
+      const groups = groupedPermissionsFor("ADMIN");
+
+      // "users" precedes "content" in PERMISSIONS but not alphabetically —
+      // proves the order is read off PERMISSIONS, not re-sorted.
+      const users = groups.findIndex((group) => group.category === "Users");
+      const content = groups.findIndex((group) => group.category === "Content");
+      expect(users).toBeLessThan(content);
+    });
+
+    it("omits a category the role holds nothing in", () => {
+      const groups = groupedPermissionsFor("SOCIAL_MANAGER");
+
+      expect(groups.some((group) => group.category === "Automations")).toBe(false);
+    });
   });
 });

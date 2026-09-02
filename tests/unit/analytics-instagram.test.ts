@@ -50,7 +50,9 @@ describe("InstagramAnalyticsAdapter.fetchMetrics", () => {
 
   it("normalizes reach, likes, comments, shares and engagement, and computes engagement rate", async () => {
     fetchMock.mockResolvedValue(
-      reply(metricPayload({ reach: 200, likes: 20, comments: 5, shares: 2, total_interactions: 30 })),
+      reply(
+        metricPayload({ reach: 200, likes: 20, comments: 5, shares: 2, total_interactions: 30 }),
+      ),
     );
 
     const result = await new InstagramAnalyticsAdapter().fetchMetrics(request, credentials);

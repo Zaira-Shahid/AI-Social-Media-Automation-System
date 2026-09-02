@@ -12,7 +12,13 @@ import type { ComparisonGroup } from "@/lib/reporting/schema";
  * produces no weighting rather than fabricated shares.
  */
 function group(overrides: Partial<ComparisonGroup> = {}): ComparisonGroup {
-  return { key: "FACEBOOK", postsAnalyzed: 1, totalEngagement: 10, averageEngagement: 10, ...overrides };
+  return {
+    key: "FACEBOOK",
+    postsAnalyzed: 1,
+    totalEngagement: 10,
+    averageEngagement: 10,
+    ...overrides,
+  };
 }
 
 describe("aggregateWeighting", () => {

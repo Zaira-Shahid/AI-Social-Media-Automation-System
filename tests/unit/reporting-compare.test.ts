@@ -33,7 +33,10 @@ function post(overrides: Partial<AnalyzablePost> = {}): AnalyzablePost {
 
 describe("withMeasuredEngagement", () => {
   it("drops posts with no measured engagement rather than treating them as zero", () => {
-    const posts = [post({ platformPostId: "a", engagement: 5 }), post({ platformPostId: "b", engagement: null })];
+    const posts = [
+      post({ platformPostId: "a", engagement: 5 }),
+      post({ platformPostId: "b", engagement: null }),
+    ];
 
     expect(withMeasuredEngagement(posts).map((p) => p.platformPostId)).toEqual(["a"]);
   });
@@ -81,7 +84,10 @@ describe("compareBy", () => {
   });
 
   it("excludes unmeasured posts from both the count and the average", () => {
-    const posts = [post({ platform: "FACEBOOK", engagement: 10 }), post({ platform: "FACEBOOK", engagement: null })];
+    const posts = [
+      post({ platform: "FACEBOOK", engagement: 10 }),
+      post({ platform: "FACEBOOK", engagement: null }),
+    ];
 
     const groups = compareBy(posts, (p) => p.platform);
 
