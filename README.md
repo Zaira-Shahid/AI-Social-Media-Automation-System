@@ -35,6 +35,7 @@ run what exists today.
 | 19 — AI Strategy Optimization | Complete ([plan](docs/module-19-plan.md)) |
 | 20 — Automation Control Center | Complete ([plan](docs/module-20-plan.md)) |
 | 21 — Audit Logs & Error Recovery | Complete ([plan](docs/module-21-plan.md)) |
+| 22 — Security & Production Hardening | Complete ([plan](docs/module-22-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -168,6 +169,34 @@ deliberately did **not** add: a way to retry a `FAILED` post in place.
 `scheduleRefusal` already explains why — *"scheduling it again would hide
 why"* — so recovering a failed post means regenerating a fresh version and
 approving that, which already worked before this module and was left alone.
+
+Module 22 audited the system end to end rather than adding a screen — nine
+checks (Firestore rules, Admin SDK handling, authorization, secrets, API
+security, error exposure, logging, dependencies, production configuration),
+each verified directly against the code and, for anything a browser
+actually runs, against a live app rather than assumed from reading it.
+`npm audit` found six moderate advisories, all one root cause — an old
+`uuid` several layers inside `firebase-admin`'s own dependency tree, with no
+non-breaking upstream fix yet — resolved with a targeted `overrides` entry
+rather than the breaking downgrade `npm audit fix --force` suggested;
+`npm audit` now reports zero. The app had no security headers and no
+`next/image` allowance for Cloudinary at all — the latter a live bug
+waiting for the first real logo (`brand-form.tsx` already renders one
+through `next/image`), not a hypothetical. Both are fixed.
+
+Content-Security-Policy needed more than inspection. A static policy broke
+every page outright — Next's own inline hydration scripts read as CSP
+violations — caught by a headless run against a real production build, not
+assumed; the fix is Next's documented nonce pattern, generated fresh per
+request in `proxy.ts` rather than as a static header, which a login test
+then proved actually reaches `identitytoolkit.googleapis.com` and back. A
+second break surfaced only by running the full 86-test credentialed e2e
+suite: the emulator-backed dev and test environment talks to
+`127.0.0.1:9099`, which the production-scoped policy didn't allow, failing
+every test behind a sign-in. `connect-src` now widens for that one host
+only when `NEXT_PUBLIC_FIREBASE_EMULATOR_HOST` is set — the same flag the
+Firebase client already reads — so a deployed environment is never affected
+by it. All 86 e2e-auth tests pass against the fixed policy.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,
