@@ -8,14 +8,12 @@ import {
   newsItemSchema,
   newsItemStatusSchema,
   newsSelectionSchema,
-  AUTOMATION_RUNS_COLLECTION,
   SELECTED_NEWS_COLLECTION,
   EMPTY_SOURCE_HEALTH,
   NEWS_ITEMS_COLLECTION,
   NEWS_SOURCES_COLLECTION,
   newsSourceInputSchema,
   sourceHealthSchema,
-  type AutomationRun,
   type NewsSelection,
   type NewsSource,
   type NewsItemStatus,
@@ -321,22 +319,6 @@ export async function saveRanking(
 export async function countNewsItems(): Promise<number> {
   const snapshot = await items().count().get();
   return snapshot.data().count;
-}
-
-/** §45: every run is logged. Module 20 builds the screen that reads these. */
-export async function recordAutomationRun(run: AutomationRun): Promise<void> {
-  try {
-    await getAdminFirestore()
-      .collection(AUTOMATION_RUNS_COLLECTION)
-      .add({ ...run, createdAt: FieldValue.serverTimestamp() });
-  } catch (error) {
-    // A run that succeeded must not be reported as failed because its own
-    // bookkeeping failed.
-    logger.error("Failed to record automation run", {
-      workflow: run.workflow,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
 }
 
 /**

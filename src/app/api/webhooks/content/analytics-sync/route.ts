@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { ANALYTICS_SYNC_WORKFLOW } from "@/lib/automation/schema";
+import { isWorkflowEnabled } from "@/lib/automation/gate";
 import { getServerEnv } from "@/lib/env.server";
 import { logger } from "@/lib/logger";
 import { runAnalyticsSync } from "@/lib/analytics/sync";
@@ -29,6 +31,12 @@ export async function POST(request: Request) {
     logger.warn("Rejected analytics sync webhook", { reason: verification.reason });
 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!(await isWorkflowEnabled(ANALYTICS_SYNC_WORKFLOW))) {
+    logger.info("Analytics sync skipped: disabled from the Automation Control Center");
+
+    return NextResponse.json({ skipped: true, reason: "This automation is disabled." });
   }
 
   try {

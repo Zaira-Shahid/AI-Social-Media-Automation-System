@@ -132,17 +132,29 @@ export const newsItemSchema = z.object({
 
 export type NewsItem = z.infer<typeof newsItemSchema>;
 
+/**
+ * §63 Module 20 generalized this to cover every automation, not just news
+ * discovery and ranking. `sourcesAttempted`/`sourcesFailed`/`itemsDiscovered`/
+ * `itemsNew` stay exactly as they were — `ingest.ts`, `rank.ts` and the
+ * screens that already read them (`news/actions.ts`, `news/sources/actions.ts`)
+ * are untouched — but every other workflow (content generation, scheduling,
+ * publishing, analytics sync, weekly analysis, strategy optimization) has no
+ * use for "sources" or "items" at all, so `metrics` is a free-form counters
+ * bag those use instead. Defaulted, so a run written before this change still
+ * parses (same reasoning as `platformPost.publishAttempts`'s default).
+ */
 export const automationRunSchema = z.object({
   workflow: z.string().min(1),
   status: z.enum(["SUCCESS", "PARTIAL", "FAILURE"]),
   startedAt: z.string().datetime(),
   finishedAt: z.string().datetime(),
-  sourcesAttempted: z.number().int().min(0),
-  sourcesFailed: z.number().int().min(0),
-  itemsDiscovered: z.number().int().min(0),
-  itemsNew: z.number().int().min(0),
+  sourcesAttempted: z.number().int().min(0).default(0),
+  sourcesFailed: z.number().int().min(0).default(0),
+  itemsDiscovered: z.number().int().min(0).default(0),
+  itemsNew: z.number().int().min(0).default(0),
   error: z.string().nullable(),
   trigger: z.enum(["WEBHOOK", "MANUAL"]),
+  metrics: z.record(z.string(), z.number()).default({}),
 });
 
 export type AutomationRun = z.infer<typeof automationRunSchema>;

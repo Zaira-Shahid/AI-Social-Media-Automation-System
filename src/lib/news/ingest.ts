@@ -2,15 +2,11 @@ import "server-only";
 
 import Parser from "rss-parser";
 
+import { recordAutomationRun } from "@/lib/automation/store";
 import { logger } from "@/lib/logger";
 import { normalizeFeed, type FeedEntry } from "@/lib/news/normalize";
 import type { AutomationRun, NewsSource, SourceHealth } from "@/lib/news/schema";
-import {
-  listActiveSources,
-  recordAutomationRun,
-  recordSourceHealth,
-  upsertNewsItems,
-} from "@/lib/news/store";
+import { listActiveSources, recordSourceHealth, upsertNewsItems } from "@/lib/news/store";
 
 /**
  * The ingestion run (spec §45).
@@ -157,6 +153,7 @@ export async function runNewsDiscovery(trigger: "WEBHOOK" | "MANUAL"): Promise<I
       itemsNew: 0,
       error: message.slice(0, 500),
       trigger,
+      metrics: {},
     };
 
     await recordAutomationRun(run);
@@ -191,6 +188,7 @@ export async function runNewsDiscovery(trigger: "WEBHOOK" | "MANUAL"): Promise<I
             .slice(0, 500)
         : null,
     trigger,
+    metrics: {},
   };
 
   await recordAutomationRun(run);

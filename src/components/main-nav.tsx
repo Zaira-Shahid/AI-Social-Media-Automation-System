@@ -55,7 +55,7 @@ const NAVIGATION: NavItem[] = [
   { label: "Calendar", icon: CalendarDays, href: "/calendar", permission: "content:view" },
   { label: "Analytics", icon: BarChart3, href: "/analytics", permission: "analytics:view" },
   { label: "Strategy", icon: Target, href: "/strategy", permission: "strategy:view" },
-  { label: "Automation", icon: Workflow },
+  { label: "Automation", icon: Workflow, href: "/automation", permission: "automations:manage" },
   {
     label: "Social Accounts",
     icon: Share2,

@@ -3,6 +3,8 @@ import "server-only";
 import { getAIProvider } from "@/lib/ai";
 import { GROQ_FREE_TIER } from "@/lib/ai/groq";
 import type { AIProvider } from "@/lib/ai/provider";
+import { NO_SOURCE_METRICS } from "@/lib/automation/schema";
+import { recordAutomationRun } from "@/lib/automation/store";
 import { getBrandProfile } from "@/lib/brand/store";
 import {
   isBrandReadyForWriting,
@@ -256,8 +258,49 @@ export class GenerationError extends Error {}
  *
  * Stops before publishing, scheduling and approval — all three belong to a
  * human (§10). Nothing here writes a status beyond IN_REVIEW.
+ *
+ * Wrapped so every exit path — both SKIPPED returns, the final result, and a
+ * thrown `GenerationError` — records exactly one automation run (§41, §63
+ * Module 20), instead of repeating that at each return statement.
  */
 export async function runContentGeneration(actor: string): Promise<GenerationOutcome> {
+  const startedAt = new Date().toISOString();
+  // §45's convention: the webhook passes an "n8n:..." actor; a person's own
+  // uid means the manual "Generate" button on the Content screen.
+  const trigger: "WEBHOOK" | "MANUAL" = actor.startsWith("n8n:") ? "WEBHOOK" : "MANUAL";
+
+  try {
+    const outcome = await runContentGenerationInner(actor);
+
+    await recordAutomationRun({
+      workflow: CONTENT_GENERATION_WORKFLOW,
+      status: outcome.status === "FAILED" ? "FAILURE" : outcome.status === "PARTIAL" ? "PARTIAL" : "SUCCESS",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error: outcome.problems.length > 0 ? outcome.problems.join("; ").slice(0, 500) : null,
+      trigger,
+      metrics: { stories: outcome.stories, posts: outcome.posts, problems: outcome.problems.length },
+    });
+
+    return outcome;
+  } catch (error) {
+    await recordAutomationRun({
+      workflow: CONTENT_GENERATION_WORKFLOW,
+      status: "FAILURE",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+      trigger,
+      metrics: {},
+    });
+
+    throw error;
+  }
+}
+
+async function runContentGenerationInner(actor: string): Promise<GenerationOutcome> {
   const provider = getAIProvider();
   const { company, brand } = await getBrandProfile();
 

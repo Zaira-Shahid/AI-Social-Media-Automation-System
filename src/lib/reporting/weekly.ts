@@ -3,6 +3,8 @@ import "server-only";
 import { getAIProvider } from "@/lib/ai";
 import type { AIProvider } from "@/lib/ai/provider";
 import { recordAudit } from "@/lib/audit";
+import { NO_SOURCE_METRICS } from "@/lib/automation/schema";
+import { recordAutomationRun } from "@/lib/automation/store";
 import { getPostAnalytics } from "@/lib/analytics/store";
 import type { AnalyticsRecord } from "@/lib/analytics/schema";
 import { getContentItemsByIds, listPublishedPostsBetween } from "@/lib/content/store";
@@ -158,7 +160,49 @@ export interface WeeklyAnalysisOutcome {
  * call happens once, over the finished comparison, and only if there is
  * anything measured to narrate (§67).
  */
+/**
+ * Wrapped so both the normal result and an unexpected throw each record
+ * exactly one automation run (§41, §63 Module 20), without touching the
+ * inner function's own logic or its several early-continue paths.
+ */
 export async function runWeeklyAnalysis(now: Date = new Date()): Promise<WeeklyAnalysisOutcome> {
+  const startedAt = now.toISOString();
+
+  try {
+    const outcome = await runWeeklyAnalysisInner(now);
+
+    await recordAutomationRun({
+      workflow: WEEKLY_ANALYSIS_WORKFLOW,
+      status: "SUCCESS",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error: null,
+      trigger: "WEBHOOK",
+      metrics: {
+        postsAnalyzed: outcome.postsAnalyzed,
+        postsExcluded: outcome.postsExcluded,
+      },
+    });
+
+    return outcome;
+  } catch (error) {
+    await recordAutomationRun({
+      workflow: WEEKLY_ANALYSIS_WORKFLOW,
+      status: "FAILURE",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+      trigger: "WEBHOOK",
+      metrics: {},
+    });
+
+    throw error;
+  }
+}
+
+async function runWeeklyAnalysisInner(now: Date): Promise<WeeklyAnalysisOutcome> {
   const timeZone = getServerEnv().APP_TIMEZONE;
   const window = currentWeekWindow(now, timeZone);
 
