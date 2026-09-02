@@ -32,6 +32,7 @@ run what exists today.
 | 16 — Publishing Engine | Complete ([plan](docs/module-16-plan.md)) |
 | 17 — Analytics Collection | Complete ([plan](docs/module-17-plan.md)) |
 | 18 — Weekly Performance Analysis | Complete ([plan](docs/module-18-plan.md)) |
+| 19 — AI Strategy Optimization | Complete ([plan](docs/module-19-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -118,6 +119,24 @@ overall performance, platform/topic/format comparison, top and weak posts,
 and the engagement trend across recent weeks. Module 18 stops at reporting
 what happened — the strategy recommendations that act on it, with versioning
 and evidence citations, are Module 19.
+
+A second signed tick (`10_strategy_optimization`) reads the last four weekly
+reports and computes topic, platform and format weighting as each one's real
+share of measured engagement over that window — never an AI-invented number.
+One AI call then writes up to eight recommendations (§24: topic weighting,
+platform weighting, posting frequency, content mix, headline style, CTA
+style, format distribution, timing), each grounded in those weights with a
+stated reason, skipped outright when nothing was measured. Every run adds a
+new version rather than overwriting the last one, so "current strategy" is
+just the highest version and nothing is ever silently lost — §24 permits the
+strategy to change automatically precisely because that history stays
+intact. **The strategy can change on its own; a post still always needs a
+human's approval before it publishes** — nothing here writes a platform
+post, and nothing here writes to the human-owned brand profile (§11) or
+Module 06's fixed three-stories-a-day rule (§8) either, however a
+recommendation might read. The Strategy screen (`/strategy`) shows the
+current version, its recommendations, and version history, plus a
+manual "Regenerate now" for ADMIN.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,
