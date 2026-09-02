@@ -5,6 +5,7 @@ import {
   duplicateGroupKey,
   newsItemId,
   normalizeEntry,
+  firstCategory,
   normalizeFeed,
   toPlainText,
   type FeedEntry,
@@ -109,6 +110,79 @@ describe("duplicateGroupKey", () => {
   });
 });
 
+describe("toPlainText and non-string feed fields", () => {
+  /*
+   * The same class of bug the category fix addressed: rss-parser returns
+   * whatever the feed contained, so a field carrying attributes arrives as an
+   * object. One unguarded string method threw and lost every item in the feed.
+   */
+  it("treats a non-string as absent rather than throwing", () => {
+    expect(toPlainText({ _: "Title", $: { type: "html" } })).toBe("");
+    expect(toPlainText(undefined)).toBe("");
+    expect(toPlainText(null)).toBe("");
+    expect(toPlainText(42)).toBe("");
+  });
+
+  it("skips an entry whose title is an object, instead of failing the feed", () => {
+    const entry: FeedEntry = { ...RSS_ENTRY, title: { $: { type: "html" } } };
+
+    expect(normalizeEntry(entry, SOURCE, RETRIEVED_AT)).toBeNull();
+  });
+
+  it("skips an entry whose link is an object, instead of failing the feed", () => {
+    const entry: FeedEntry = { ...RSS_ENTRY, link: { $: { href: "https://example.test/x" } } };
+
+    expect(normalizeEntry(entry, SOURCE, RETRIEVED_AT)).toBeNull();
+  });
+
+  it("falls back to the retrieval time when a date is not a string", () => {
+    const entry: FeedEntry = { ...RSS_ENTRY, isoDate: { $: {} }, pubDate: undefined };
+
+    expect(normalizeEntry(entry, SOURCE, RETRIEVED_AT)?.item.publishedAt).toBe(RETRIEVED_AT);
+  });
+
+  it("keeps the good entries in a feed that also contains a broken one", () => {
+    const result = normalizeFeed(
+      [{ ...RSS_ENTRY, title: { $: { type: "html" } } }, ATOM_ENTRY],
+      SOURCE,
+      RETRIEVED_AT,
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0].item.title).toBe("New AI agent launched");
+  });
+});
+
+describe("firstCategory", () => {
+  it("takes a plain string category", () => {
+    expect(firstCategory({ categories: ["Enterprise"] })).toBe("Enterprise");
+  });
+
+  it("reads an RSS category that carries a domain attribute", () => {
+    // <category domain="https://example.test/cat">Enterprise</category>
+    expect(firstCategory({ categories: [{ _: "Enterprise", $: { domain: "x" } }] })).toBe(
+      "Enterprise",
+    );
+  });
+
+  it("reads an Atom category, whose text is in the term attribute", () => {
+    // <category term="Enterprise"/> — no body at all.
+    expect(firstCategory({ categories: [{ $: { term: "Enterprise" } }] })).toBe("Enterprise");
+  });
+
+  it("skips entries it cannot read rather than stringifying them", () => {
+    expect(firstCategory({ categories: [{ $: { domain: "x" } }, "Enterprise"] })).toBe(
+      "Enterprise",
+    );
+    expect(firstCategory({ categories: [{ $: { domain: "x" } }] })).toBeNull();
+    expect(firstCategory({ categories: [null, "", "  "] })).toBeNull();
+  });
+
+  it("is null when the feed offers no categories", () => {
+    expect(firstCategory({})).toBeNull();
+  });
+});
+
 describe("normalizeEntry", () => {
   it("normalizes an RSS entry", () => {
     const result = normalizeEntry(RSS_ENTRY, SOURCE, RETRIEVED_AT);
@@ -191,6 +265,31 @@ describe("normalizeEntry", () => {
     const result = normalizeEntry({ ...RSS_ENTRY, title: "x".repeat(900) }, SOURCE, RETRIEVED_AT);
 
     expect(result?.item.title).toHaveLength(500);
+  });
+});
+
+describe("normalizeEntry and object categories", () => {
+  /*
+   * The bug this guards: `categories` was typed `string[]` and used with
+   * `.slice(0, 60)`, so a feed sending category objects threw
+   * "…slice is not a function" and every item in that feed was lost.
+   */
+  it("normalizes an entry whose categories are objects, falling back where unreadable", () => {
+    const withObject = normalizeEntry(
+      { ...RSS_ENTRY, categories: [{ $: { domain: "https://example.test/c" } }] },
+      SOURCE,
+      RETRIEVED_AT,
+    );
+
+    expect(withObject?.item.category).toBe("AI");
+
+    const withTerm = normalizeEntry(
+      { ...RSS_ENTRY, categories: [{ $: { term: "Enterprise" } }] },
+      SOURCE,
+      RETRIEVED_AT,
+    );
+
+    expect(withTerm?.item.category).toBe("Enterprise");
   });
 });
 
