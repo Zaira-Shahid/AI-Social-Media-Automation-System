@@ -21,7 +21,7 @@ export default async function AutomationPage() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-semibold">Automation</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Automation</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Every scheduled workflow, its most recent run, and a switch to turn it off without touching
         n8n. n8n still fires each trigger on schedule; disabling one here means the endpoint declines

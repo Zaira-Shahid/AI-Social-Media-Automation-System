@@ -108,7 +108,7 @@ export function StrategyScreen({
               ["Weak topic", latestWeek.weakTopic ?? "—"],
               ["Best format", latestWeek.bestFormat ? labelFor(latestWeek.bestFormat) : "—"],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-md border p-3">
+              <div key={label} className="rounded-md border border-border bg-card p-3">
                 <dt className="text-xs text-muted-foreground">{label}</dt>
                 <dd className="mt-1 text-sm font-medium">{value}</dd>
               </div>

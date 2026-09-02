@@ -421,6 +421,12 @@ export async function listRecentContentItems(limit: number): Promise<StoredConte
     .filter((item): item is StoredContentItem => item !== null);
 }
 
+/** How many platform posts currently sit in one status — the Dashboard's pending-approval count. */
+export async function countPlatformPostsByStatus(status: PostStatus): Promise<number> {
+  const snapshot = await platformPosts().where("status", "==", status).count().get();
+  return snapshot.data().count;
+}
+
 /**
  * Record an immutable version (§32's `content_versions`).
  *

@@ -62,7 +62,7 @@ export default async function ContentPage({
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-semibold">Content</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Content</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         One core message per selected story, adapted per platform. Each version carries its own
         status — a weak version for one platform never blocks the others, and nothing publishes

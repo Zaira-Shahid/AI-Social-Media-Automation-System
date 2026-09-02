@@ -20,7 +20,7 @@ export default async function NewsSourcesPage() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-semibold">News sources</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">News sources</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Feeds discovery reads, in priority order. {itemCount} article
         {itemCount === 1 ? "" : "s"} discovered so far — ranking and selection come later.

@@ -29,7 +29,7 @@ export default async function StrategyPage() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-semibold">Strategy</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Strategy</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         What the numbers say worked, and what changes for next week — every recommendation traces
         back to measured analytics, never invented (§25). The strategy can update automatically;

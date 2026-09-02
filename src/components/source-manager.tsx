@@ -182,7 +182,7 @@ function SourceForm({ source, onDone }: { source: NewsSource | null; onDone: () 
   const errors = state.fieldErrors ?? {};
 
   return (
-    <form action={action} className="mt-4 space-y-4 rounded-lg border border-border p-4">
+    <form action={action} className="mt-4 space-y-4 rounded-lg border border-border bg-card p-4">
       <h2 className="text-sm font-semibold">{source ? `Edit ${source.name}` : "Add a source"}</h2>
 
       {source ? <input type="hidden" name="id" value={source.id} /> : null}

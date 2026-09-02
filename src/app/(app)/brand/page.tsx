@@ -21,7 +21,7 @@ export default async function BrandPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-semibold">Brand</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Brand</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         One central profile. Every generated post inherits it — the brand is never defined per
         platform.
