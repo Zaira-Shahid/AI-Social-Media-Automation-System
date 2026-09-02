@@ -1,0 +1,85 @@
+# Render Blueprint (spec §28, §56, §57).
+#
+# Every value below is either a public default or `sync: false` — Render
+# prompts for those in its dashboard rather than storing them here, because
+# this file is committed to Git and §56 forbids a secret in Git under any
+# circumstance. See docs/deployment-guide.md for what to paste into each one
+# and where it comes from.
+#
+# `next start` reads Render's own $PORT automatically; nothing here sets it.
+services:
+  - type: web
+    name: ai-social-media-automation
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      # --- Firebase client config — not secret, safe in the browser bundle ---
+      - key: NEXT_PUBLIC_FIREBASE_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_APP_ID
+        sync: false
+
+      # --- Firebase Admin — the highest-privilege secret in the system ---
+      - key: FIREBASE_ADMIN_PROJECT_ID
+        sync: false
+      - key: FIREBASE_ADMIN_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_ADMIN_PRIVATE_KEY
+        sync: false
+
+      # --- Cloudinary ---
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      # --- Application ---
+      - key: APP_TIMEZONE
+        value: Asia/Karachi
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: N8N_WEBHOOK_SECRET
+        sync: false
+      - key: APP_BASE_URL
+        sync: false
+      - key: SESSION_COOKIE_MAX_AGE_DAYS
+        value: "5"
+
+      # --- Providers — every one defaults to mock; flip only what you have
+      #     real credentials for, per docs/deployment-guide.md ---
+      - key: AI_PROVIDER
+        value: mock
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SLACK_PROVIDER
+        value: mock
+      - key: SLACK_BOT_TOKEN
+        sync: false
+      - key: SLACK_NEWS_CHANNEL_ID
+        sync: false
+      - key: FACEBOOK_PROVIDER
+        value: mock
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      - key: INSTAGRAM_PROVIDER
+        value: mock
+      - key: LINKEDIN_PROVIDER
+        value: mock
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
