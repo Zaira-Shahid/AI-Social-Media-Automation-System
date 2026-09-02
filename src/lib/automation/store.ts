@@ -2,12 +2,14 @@ import "server-only";
 
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { logger } from "@/lib/logger";
+import { getSlackTarget } from "@/lib/slack";
 import {
   automationRunSchema,
   automationSettingSchema,
   AUTOMATION_RUNS_COLLECTION,
   AUTOMATION_SETTINGS_COLLECTION,
   DEFAULT_AUTOMATION_SETTING,
+  PUBLISHING_WORKFLOW,
   type AutomationRun,
   type AutomationSetting,
 } from "@/lib/automation/schema";
@@ -29,6 +31,46 @@ function runs() {
 
 function settings() {
   return getAdminFirestore().collection(AUTOMATION_SETTINGS_COLLECTION);
+}
+
+/**
+ * Alert Slack when a workflow fails outright (§41, §52's "Notify" step,
+ * §63 Module 21).
+ *
+ * Publishing is excluded: `publishing/publish.ts` already sends its own
+ * richer, per-post breakdown on a publish failure, and alerting here too
+ * would post the same failure twice.
+ *
+ * Best-effort and never thrown from `recordAutomationRun` — a Slack outage
+ * must not make an automation's own failure harder to see in the log, which
+ * is the one thing this function must never do.
+ */
+async function alertOnFailure(run: AutomationRun): Promise<void> {
+  if (run.status !== "FAILURE" || run.workflow === PUBLISHING_WORKFLOW) return;
+
+  try {
+    const { notifier, channel } = getSlackTarget();
+
+    await notifier.post(channel, {
+      text: `${run.workflow} failed`,
+      blocks: [
+        { type: "header", text: { type: "plain_text", text: `Automation failed: ${run.workflow}` } },
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: run.error ?? "No error detail was recorded." },
+        },
+        {
+          type: "context",
+          elements: [{ type: "mrkdwn", text: "See Automation in the app for run history and a manual re-run." }],
+        },
+      ],
+    });
+  } catch (error) {
+    logger.error("Could not send a Slack alert for a failed automation", {
+      workflow: run.workflow,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 /**
@@ -57,6 +99,8 @@ export async function recordAutomationRun(run: AutomationRun): Promise<void> {
       error: error instanceof Error ? error.message : String(error),
     });
   }
+
+  await alertOnFailure(parsed.data);
 }
 
 function parseRun(id: string, data: unknown): AutomationRun | null {
