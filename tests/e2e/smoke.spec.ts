@@ -96,6 +96,14 @@ test("the scheduler webhook rejects an unsigned request", async ({ request }) =>
   expect(response.status()).toBe(401);
 });
 
+test("the publishing webhook rejects an unsigned request", async ({ request }) => {
+  const response = await request.post("/api/webhooks/content/publish", {
+    data: { trigger: "publish" },
+  });
+
+  expect(response.status()).toBe(401);
+});
+
 test("the social accounts screen is not reachable without a session", async ({ page }) => {
   await page.goto("/social-accounts");
 
