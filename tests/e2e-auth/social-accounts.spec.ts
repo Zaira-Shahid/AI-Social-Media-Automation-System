@@ -5,10 +5,10 @@ import fixture from "../fixtures/e2e-user.json";
 /**
  * Social accounts (spec §19, §21, §42, §66).
  *
- * Runs only under `npm run test:e2e:auth`. `FACEBOOK_PROVIDER` and
- * `INSTAGRAM_PROVIDER` are both left at their default of `mock` throughout, so
- * nothing here can reach a real account (§58) — and what these check is that
- * the screen says exactly that rather than implying a connection nobody made.
+ * Runs only under `npm run test:e2e:auth`. Every provider switch is left at
+ * its default of `mock` throughout, so nothing here can reach a real account
+ * (§58) — and what these check is that the screen says exactly that rather
+ * than implying a connection nobody made.
  */
 test.skip(
   !process.env.FIREBASE_AUTH_EMULATOR_HOST,
@@ -59,11 +59,14 @@ test("a simulated integration says MOCK, not Connected (§21, §66)", async ({ p
   await expect(facebook.getByTestId("connection-state")).toHaveText("Not connected");
 });
 
-test("a platform nobody has built says which module builds it", async ({ page }) => {
+test("LinkedIn names what the self-serve tier cannot do, not a module (§66)", async ({ page }) => {
   await signIn(page, fixture.admin);
   await page.goto("/social-accounts");
 
-  await expect(card(page, "LinkedIn").getByTestId("limitation")).toContainText("Module 14");
+  const linkedin = card(page, "LinkedIn");
+
+  await expect(linkedin.getByTestId("adapter-mode")).toHaveText("MOCK");
+  await expect(linkedin.getByTestId("limitation")).toContainText("LINKEDIN_PROVIDER");
 });
 
 test("Instagram is built and simulated, not 'not built yet' (§21, §66)", async ({ page }) => {
@@ -78,12 +81,37 @@ test("Instagram is built and simulated, not 'not built yet' (§21, §66)", async
   await expect(instagram.getByTestId("limitation")).toContainText("INSTAGRAM_PROVIDER");
 });
 
-test("an ADMIN is offered a connect form for both Meta platforms", async ({ page }) => {
+test("an ADMIN is offered a connect form for every platform", async ({ page }) => {
   await signIn(page, fixture.admin);
   await page.goto("/social-accounts");
 
   await expect(card(page, "Facebook").getByLabel("Meta user access token")).toBeVisible();
   await expect(card(page, "Instagram").getByLabel("Meta user access token")).toBeVisible();
+  await expect(card(page, "LinkedIn").getByLabel("LinkedIn access token")).toBeVisible();
+});
+
+test("the LinkedIn form asks for the publishing scope by name", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/social-accounts");
+
+  await expect(card(page, "LinkedIn")).toContainText("w_member_social");
+});
+
+test("connecting LinkedIn without client credentials fails loudly", async ({ page }) => {
+  await signIn(page, fixture.admin);
+  await page.goto("/social-accounts");
+
+  const linkedin = card(page, "LinkedIn");
+
+  await linkedin.getByLabel("LinkedIn access token").fill("not-a-real-token");
+  await linkedin.getByRole("button", { name: "Connect profile" }).click();
+
+  /*
+   * §19 requires the real expiry be tracked, and without the client
+   * credentials it cannot be established — storing the token with a guessed
+   * date would put a false countdown on this screen (§67).
+   */
+  await expect(linkedin.getByTestId("connect-status")).toContainText("LINKEDIN_CLIENT_ID");
 });
 
 test("the Instagram form asks for the publishing scope by name", async ({ page }) => {
@@ -97,11 +125,11 @@ test("every token field is a password field, so none is ever on screen", async (
   await signIn(page, fixture.admin);
   await page.goto("/social-accounts");
 
-  const fields = page.getByLabel("Meta user access token");
+  const meta = page.getByLabel("Meta user access token");
 
-  await expect(fields).toHaveCount(2);
+  await expect(meta).toHaveCount(2);
 
-  for (const field of await fields.all()) {
+  for (const field of [...(await meta.all()), page.getByLabel("LinkedIn access token")]) {
     await expect(field).toHaveAttribute("type", "password");
   }
 });
@@ -143,4 +171,5 @@ test("a SOCIAL_MANAGER can see the screen but cannot connect an account (§27)",
 
   await expect(page.getByTestId("social-account")).toHaveCount(3);
   await expect(page.getByLabel("Meta user access token")).toHaveCount(0);
+  await expect(page.getByLabel("LinkedIn access token")).toHaveCount(0);
 });

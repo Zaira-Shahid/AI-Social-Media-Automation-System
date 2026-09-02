@@ -144,5 +144,4 @@ fix was to the assertion, not to the screen.
 
 ### Next
 
-Module 10 — Social Media Calendar. Module 05's WhatsApp swap is still open on
-`feature/module-05-whatsapp-notification`.
+Module 10 — Social Media Calendar.

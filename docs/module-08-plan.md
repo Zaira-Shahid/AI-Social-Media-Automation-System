@@ -156,5 +156,4 @@ replaced.
 
 ### Next
 
-Module 09 — Content Preview & Approval. Module 05's WhatsApp swap is still open
-on `feature/module-05-whatsapp-notification`.
+Module 09 — Content Preview & Approval.

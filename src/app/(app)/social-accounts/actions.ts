@@ -8,6 +8,7 @@ import { getServerEnv } from "@/lib/env.server";
 import { logger } from "@/lib/logger";
 import { exchangeForLongLivedUserToken, listPages } from "@/lib/publishing/facebook";
 import { findInstagramAccount } from "@/lib/publishing/instagram";
+import { fetchMemberIdentity, introspectToken, missingScopes } from "@/lib/publishing/linkedin";
 import { encryptToken } from "@/lib/social/crypto";
 import { deleteSocialAccount, saveSocialAccount } from "@/lib/social/store";
 
@@ -292,4 +293,149 @@ export async function disconnectInstagram(
   revalidatePath("/social-accounts");
 
   return { status: "success", message: "Disconnected. Nothing can publish to the account now." };
+}
+
+/**
+ * Connect a LinkedIn member profile (§19, §42, §56).
+ *
+ * A pasted token again, but for a different reason than Meta's. LinkedIn's
+ * 3-legged OAuth needs a registered redirect URL answered over HTTPS, and this
+ * system has none until it is deployed (§28) — the same constraint that made
+ * §66 mark Slack's interactive buttons UNAVAILABLE. LinkedIn's developer
+ * portal issues a token directly for an app's own owner, which is exactly the
+ * case here, so that is what this takes.
+ *
+ * Unlike Meta, the stored `expiresAt` is a real date: it is read back from
+ * LinkedIn's token introspection rather than assumed to be sixty days out.
+ */
+export async function connectLinkedIn(
+  previous: ConnectFormState,
+  form: FormData,
+): Promise<ConnectFormState> {
+  void previous;
+
+  const user = await requirePermission("integrations:manage");
+  const env = getServerEnv();
+
+  const accessToken = String(form.get("accessToken") ?? "").trim();
+
+  if (!accessToken) {
+    return { status: "error", message: "Paste the LinkedIn access token first." };
+  }
+
+  if (!env.LINKEDIN_CLIENT_ID || !env.LINKEDIN_CLIENT_SECRET) {
+    /*
+     * Loud rather than a partial success. Without them the token's real
+     * expiry cannot be established, and §19 requires tracking it — storing the
+     * token with a guessed date would put a false countdown on the screen and
+     * silently miss the window a human needs to act in (§67).
+     */
+    return {
+      status: "error",
+      message:
+        "LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET are not set, so the token's real expiry cannot be established.",
+    };
+  }
+
+  try {
+    const introspection = await introspectToken(
+      env.LINKEDIN_CLIENT_ID,
+      env.LINKEDIN_CLIENT_SECRET,
+      accessToken,
+    );
+
+    if (!introspection.active) {
+      return {
+        status: "error",
+        message: `LinkedIn reports that token as ${introspection.status ?? "inactive"}. Generate a fresh one.`,
+      };
+    }
+
+    const missing = missingScopes(introspection.scopes);
+
+    if (missing.length > 0) {
+      /*
+       * Checked now rather than discovered at publish time. A token missing
+       * w_member_social connects perfectly and then fails on the first real
+       * post, which is the worst moment to learn it.
+       */
+      return {
+        status: "error",
+        message: `That token is missing the ${missing.join(", ")} scope(s). Add the "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect" products to the app and generate a new token.`,
+      };
+    }
+
+    const member = await fetchMemberIdentity(accessToken);
+
+    await saveSocialAccount({
+      platform: "LINKEDIN",
+      accountId: member.urn,
+      accountName: member.name,
+      accessTokenEncrypted: encryptToken(accessToken),
+      // LinkedIn issues no refresh token on this tier — §19 says so, and
+      // storing a null here is what makes the expiry warning necessary.
+      refreshTokenEncrypted: null,
+      expiresAt: introspection.expiresAt,
+      lastRefreshedAt: new Date().toISOString(),
+      status: "VALID",
+      connectedAt: new Date().toISOString(),
+      connectedBy: user.uid,
+      lastError: null,
+    });
+
+    await recordAudit({
+      actor: user.uid,
+      action: "SETTINGS_CHANGED",
+      resource: "socialAccounts/LINKEDIN",
+      status: "SUCCESS",
+      // The member and the expiry, never the token (§19, §55).
+      metadata: { memberUrn: member.urn, expiresAt: introspection.expiresAt },
+    });
+
+    revalidatePath("/social-accounts");
+
+    return {
+      status: "success",
+      message: introspection.expiresAt
+        ? `Connected ${member.name}. This token expires ${introspection.expiresAt} and cannot be refreshed automatically.`
+        : `Connected ${member.name}.`,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    logger.error("Could not connect the LinkedIn profile", { error: message });
+
+    await recordAudit({
+      actor: user.uid,
+      action: "SETTINGS_CHANGED",
+      resource: "socialAccounts/LINKEDIN",
+      status: "FAILURE",
+    });
+
+    return { status: "error", message };
+  }
+}
+
+export async function disconnectLinkedIn(
+  previous: ConnectFormState,
+  form: FormData,
+): Promise<ConnectFormState> {
+  void previous;
+  void form;
+
+  const user = await requirePermission("integrations:manage");
+
+  await deleteSocialAccount("LINKEDIN");
+
+  await recordAudit({
+    actor: user.uid,
+    action: "SETTINGS_CHANGED",
+    resource: "socialAccounts/LINKEDIN",
+    status: "SUCCESS",
+    metadata: { disconnected: true },
+  });
+
+  revalidatePath("/social-accounts");
+
+  return { status: "success", message: "Disconnected. Nothing can publish to the profile now." };
 }

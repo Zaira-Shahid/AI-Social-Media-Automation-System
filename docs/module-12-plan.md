@@ -189,5 +189,3 @@ the connect form and the adapter are ready to run against the real Page.
 Module 13 — Instagram Integration. Module −1 flagged two things to confirm
 there: the exact publishing permission names, and whether the API really
 requires media as a public URL (it interacts with how Module 08 stores cards).
-Module 05's WhatsApp swap is still open on
-`feature/module-05-whatsapp-notification`.

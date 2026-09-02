@@ -179,5 +179,4 @@ Module 14 — LinkedIn Integration. Module −1 flagged that LinkedIn's
 self-serve tier gives a 60-day token that cannot be refreshed programmatically,
 which is why `TokenStatus` already has an `EXPIRING` state waiting for it, and
 that post analytics are behind a closed permission — so §22's coverage will be
-Facebook and Instagram only. Module 05's WhatsApp swap is still open on
-`feature/module-05-whatsapp-notification`.
+Facebook and Instagram only.
