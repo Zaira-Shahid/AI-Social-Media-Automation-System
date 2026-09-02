@@ -182,6 +182,50 @@ export const platformPostSchema = z.object({
    * apart from "we do not know" (§67).
    */
   scheduledAt: z.string().datetime().nullable(),
+
+  /**
+   * The platform's own id for the published post (§32, §49, §53).
+   *
+   * §32 calls this field `platformPostId`. It is named `providerPostId` here
+   * because a `platformPosts/{platformPostId}` document holding a *different*
+   * `platformPostId` is a trap: every existing call site uses that word for
+   * our own document id. The adapter contract already says `providerPostId`
+   * (`src/lib/publishing/adapter.ts`), so this matches the name the value
+   * arrives under rather than the one it collides with.
+   *
+   * This is the idempotency key §53 requires. Non-null means the platform
+   * confirmed a post, so a retry must not create a second one.
+   */
+  providerPostId: z.string().nullable().default(null),
+  /** A link a human can open, where the platform returns one. */
+  permalink: z.string().nullable().default(null),
+  /** When the platform confirmed the post, UTC (§54). */
+  publishedAt: z.string().datetime().nullable().default(null),
+  /**
+   * Whether the publish that produced the id was real or simulated (§21, §66).
+   *
+   * Recorded on the post, not inferred from the current provider setting: a
+   * post published while `FACEBOOK_PROVIDER=mock` stays MOCK forever, and
+   * flipping the switch later must not retitle history as real.
+   */
+  publishMode: z.enum(["REAL", "MOCK"]).nullable().default(null),
+  /**
+   * How many times publishing has been attempted (§52, §53).
+   *
+   * Counted so a retryable failure retries a bounded number of times instead
+   * of every tick forever. Defaulted rather than required so posts written
+   * before Module 16 parse without a migration.
+   */
+  publishAttempts: z.number().int().min(0).default(0),
+  /**
+   * When the current attempt claimed this post, UTC, or null.
+   *
+   * A lease, not a status: §17's transitions are fixed and inventing a
+   * PUBLISHING state is not open to this module. Two ticks overlapping is a
+   * real possibility once n8n retries, and this is what stops both of them
+   * calling the platform for the same post.
+   */
+  publishStartedAt: z.string().datetime().nullable().default(null),
 });
 
 export type PlatformPost = z.infer<typeof platformPostSchema>;

@@ -133,9 +133,41 @@ test("the scheduler reports what is due and publishes nothing (§49, §67)", asy
   // Nothing is approved in this run, so nothing can be scheduled or due.
   expect(payload.due).toBe(0);
   expect(payload.unapproved).toEqual([]);
-  // §67: the response never claims a publish it cannot perform.
+  // §67: this endpoint never claims a publish. It reports; publishing is a
+  // separate, signed call to content/publish.
   expect(payload.published).toBeUndefined();
-  expect(payload.detail).toContain("Module 16");
+  expect(payload.detail).toContain("/api/webhooks/content/publish");
+});
+
+test("an unsigned publishing request is rejected", async ({ request }) => {
+  const response = await request.post("/api/webhooks/content/publish", {
+    data: JSON.stringify({ trigger: "publish" }),
+    headers: { "content-type": "application/json" },
+  });
+
+  expect(response.status()).toBe(401);
+});
+
+test("the publishing tick reports zero when nothing is due (§49)", async ({ request }) => {
+  const body = JSON.stringify({ trigger: "publish" });
+
+  const response = await request.post("/api/webhooks/content/publish", {
+    headers: signed(body),
+    data: body,
+  });
+
+  expect(response.status()).toBe(200);
+
+  const payload = await response.json();
+
+  // Nothing is approved or scheduled in this run, so there is nothing to
+  // publish — and the counts say zero rather than being absent (§67).
+  expect(payload.due).toBe(0);
+  expect(payload.published).toBe(0);
+  expect(payload.failed).toBe(0);
+  expect(payload.posts).toEqual([]);
+  // Silence on Slack when nothing failed.
+  expect(payload.notified).toBe(false);
 });
 
 test("an unsigned token-expiry request is rejected", async ({ request }) => {

@@ -66,6 +66,12 @@ function post(id: string, overrides: Partial<StoredPlatformPost> = {}): StoredPl
     approvedAt: null,
     rejectionNote: null,
     scheduledAt: null,
+    providerPostId: null,
+    permalink: null,
+    publishedAt: null,
+    publishMode: null,
+    publishAttempts: 0,
+    publishStartedAt: null,
     ...overrides,
   };
 }

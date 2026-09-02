@@ -517,3 +517,178 @@ export async function updatePlatformPostCopy(
     return { ok: true as const, post: { ...current, ...copy, version } };
   });
 }
+
+/**
+ * How long a publish claim is honoured before another tick may retry (§53).
+ *
+ * Long enough that a slow three-call LinkedIn publish is never overtaken by
+ * the next tick, short enough that a process killed mid-publish does not pin
+ * the post until somebody notices. A claim is not a lock the platform knows
+ * about, so this is a duplicate-suppression window, not a guarantee — which
+ * is exactly why `providerPostId` is checked first and is the real defence.
+ */
+export const PUBLISH_CLAIM_TTL_MS = 10 * 60 * 1000;
+
+export type PublishClaim =
+  { ok: true; post: StoredPlatformPost } | { ok: false; reason: string; alreadyPublished: boolean };
+
+/**
+ * Take exclusive responsibility for publishing one post (§49, §53).
+ *
+ * Every §53 pre-condition is re-read inside the transaction rather than
+ * trusted from the due query, because the gap between "collect what is due"
+ * and "publish it" is exactly where a second tick, a reviewer, or a retry
+ * lands. In order: the post exists and parses, it has not already been
+ * published, it is SCHEDULED, it carries its own approval record, it has a
+ * rendered card, and no other attempt holds an unexpired claim.
+ *
+ * The approval check reads this document alone. §32 is explicit that the
+ * publishing engine must never infer approval from the parent content item.
+ */
+export async function claimForPublish(
+  id: string,
+  now: Date,
+  maxAttempts: number,
+): Promise<PublishClaim> {
+  const firestore = getAdminFirestore();
+  const reference = platformPosts().doc(id);
+
+  return firestore.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+
+    if (!snapshot.exists) {
+      return { ok: false as const, reason: "That post no longer exists.", alreadyPublished: false };
+    }
+
+    const current = parsePlatformPost(snapshot.id, snapshot.data());
+
+    if (!current) {
+      return {
+        ok: false as const,
+        reason: "That post's stored data is not readable.",
+        alreadyPublished: false,
+      };
+    }
+
+    /*
+     * First, and before anything else: a post the platform has already
+     * confirmed is never published again. This is what makes a retry safe
+     * (§53) — everything below it is about whether publishing may *start*.
+     */
+    if (current.providerPostId) {
+      return {
+        ok: false as const,
+        reason: `Already published as ${current.providerPostId}.`,
+        alreadyPublished: true,
+      };
+    }
+
+    if (current.status !== "SCHEDULED") {
+      return {
+        ok: false as const,
+        reason: `This post is ${current.status.toLowerCase().replace("_", " ")}, not scheduled.`,
+        alreadyPublished: false,
+      };
+    }
+
+    if (!current.approvedBy || !current.approvedAt) {
+      return {
+        ok: false as const,
+        reason: "This post carries no approval record.",
+        alreadyPublished: false,
+      };
+    }
+
+    if (!current.mediaUrl) {
+      return {
+        ok: false as const,
+        reason: "This post has no rendered card to publish.",
+        alreadyPublished: false,
+      };
+    }
+
+    if (current.publishAttempts >= maxAttempts) {
+      return {
+        ok: false as const,
+        reason: `Publishing was attempted ${current.publishAttempts} times and will not be retried automatically.`,
+        alreadyPublished: false,
+      };
+    }
+
+    const heldSince = current.publishStartedAt ? Date.parse(current.publishStartedAt) : null;
+
+    if (heldSince !== null && now.getTime() - heldSince < PUBLISH_CLAIM_TTL_MS) {
+      return {
+        ok: false as const,
+        reason: "Another publishing attempt is already in progress.",
+        alreadyPublished: false,
+      };
+    }
+
+    const claimed = {
+      publishAttempts: current.publishAttempts + 1,
+      publishStartedAt: now.toISOString(),
+    };
+
+    transaction.set(
+      reference,
+      { ...claimed, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+
+    return { ok: true as const, post: { ...current, ...claimed } };
+  });
+}
+
+/**
+ * Record a confirmed publish (§49, §67).
+ *
+ * Written in one merge with the status, so a post can never read PUBLISHED
+ * without the id that proves it — §67's whole point. `lastError` is cleared
+ * because a failure that was later retried successfully is history, not a
+ * standing problem.
+ */
+export async function recordPublishSuccess(
+  id: string,
+  result: Pick<PlatformPost, "providerPostId" | "permalink" | "publishedAt" | "publishMode">,
+): Promise<void> {
+  await platformPosts()
+    .doc(id)
+    .set(
+      {
+        ...result,
+        status: "PUBLISHED" satisfies PostStatus,
+        lastError: null,
+        publishStartedAt: null,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+}
+
+/**
+ * Record a failed publish (§52, §67).
+ *
+ * `terminal` decides the status. A retryable failure leaves the post
+ * SCHEDULED so the next tick picks it up again; only a refusal that will not
+ * change on its own — or the attempt ceiling — moves it to FAILED. Either way
+ * the reason is stored: §52 forbids failing silently, and a post that reverts
+ * to SCHEDULED with no explanation is exactly that.
+ */
+export async function recordPublishFailure(
+  id: string,
+  reason: string,
+  terminal: boolean,
+): Promise<void> {
+  await platformPosts()
+    .doc(id)
+    .set(
+      {
+        ...(terminal ? { status: "FAILED" satisfies PostStatus } : {}),
+        lastError: reason,
+        publishStartedAt: null,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+}
