@@ -129,6 +129,18 @@ const serverEnvSchema = z.object({
   INSTAGRAM_PROVIDER: z.enum(["graph", "mock"]).default("mock"),
 
   /*
+   * LinkedIn publishing (§19, §20, §21, §63 Module 14).
+   *
+   * "mock" simulates the publish and reaches nothing, which is the default.
+   * The client id and secret are used only to introspect a pasted token — they
+   * establish its real expiry, which §19 requires be tracked rather than
+   * assumed. They never leave the server and are never given to n8n.
+   */
+  LINKEDIN_PROVIDER: z.enum(["rest", "mock"]).default("mock"),
+  LINKEDIN_CLIENT_ID: z.string().min(1).optional(),
+  LINKEDIN_CLIENT_SECRET: z.string().min(1).optional(),
+
+  /*
    * Public base URL, used to build the links inside a Slack message.
    *
    * Defaulted rather than required so local development and the test runs

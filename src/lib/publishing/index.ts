@@ -5,6 +5,7 @@ import { getServerEnv } from "@/lib/env.server";
 import type { AdapterCapability, ProviderAdapter } from "@/lib/publishing/adapter";
 import { FacebookAdapter } from "@/lib/publishing/facebook";
 import { InstagramAdapter } from "@/lib/publishing/instagram";
+import { LinkedInAdapter } from "@/lib/publishing/linkedin";
 import { MockPublishAdapter } from "@/lib/publishing/mock";
 
 /**
@@ -18,12 +19,6 @@ import { MockPublishAdapter } from "@/lib/publishing/mock";
  * somebody sets the provider deliberately (§58 keeps the test runs off live
  * services, and the same switch keeps development off them).
  */
-
-const NOT_BUILT_YET: Record<Platform, string> = {
-  FACEBOOK: "",
-  INSTAGRAM: "",
-  LINKEDIN: "The LinkedIn integration is Module 14.",
-};
 
 export function getAdapter(platform: Platform): ProviderAdapter {
   const env = getServerEnv();
@@ -46,7 +41,12 @@ export function getAdapter(platform: Platform): ProviderAdapter {
         );
   }
 
-  return new MockPublishAdapter(platform, NOT_BUILT_YET[platform]);
+  return env.LINKEDIN_PROVIDER === "rest"
+    ? new LinkedInAdapter()
+    : new MockPublishAdapter(
+        platform,
+        "LINKEDIN_PROVIDER is 'mock', so nothing reaches the profile. Set it to 'rest' to publish for real.",
+      );
 }
 
 /** What every platform can do right now, for §42's screen. */

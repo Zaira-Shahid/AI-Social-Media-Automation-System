@@ -28,6 +28,7 @@ run what exists today.
 | 11 — Scheduling Engine | Complete ([plan](docs/module-11-plan.md)) |
 | 12 — Facebook Integration | Complete ([plan](docs/module-12-plan.md)) |
 | 13 — Instagram Integration | Complete ([plan](docs/module-13-plan.md)) |
+| 14 — LinkedIn Integration | In progress ([plan](docs/module-14-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -64,6 +65,18 @@ The Instagram account is reached **through** the Page it is linked to, so there
 is no second Meta app — but it is a separate connection, and disconnecting one
 leaves the other publishing. The account must be a Professional (Business or
 Creator) account; a personal account has no API access at all.
+
+LinkedIn publishes to a **member profile**, not a company Page: posting as a
+Page needs the Community Management API, which is gated behind two-tier App
+Review, a registered company and a verified Page (§66 — that is a documented
+limitation, not a missing feature). Its post analytics are unavailable too,
+because `r_member_social` is a closed permission LinkedIn is not granting, so
+§22's realistic coverage is Facebook and Instagram only. Unlike Meta, LinkedIn
+will not fetch an image from a URL — the card is downloaded and re-uploaded as
+bytes — and its token **expires after 60 days with no refresh token**. That
+expiry is read back from LinkedIn rather than assumed, and a signed daily tick
+at `/api/webhooks/social/tokens` warns on Slack inside the last seven days so a
+human can reconnect in time (§19).
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,

@@ -159,10 +159,13 @@ describe("socialAccounts rules", () => {
     await assertFails(getDoc(doc(db, "socialAccounts/FACEBOOK")));
   });
 
-  it("denies the Instagram credential too, not just the one that was tested first", async () => {
+  it("denies every platform's credential, not just the one tested first", async () => {
     const db = testEnv.authenticatedContext("admin-1", { role: "ADMIN" }).firestore();
-    await assertFails(getDoc(doc(db, "socialAccounts/INSTAGRAM")));
-    await assertFails(setDoc(doc(db, "socialAccounts/INSTAGRAM"), { accountId: "123" }));
+
+    for (const platform of ["INSTAGRAM", "LINKEDIN"]) {
+      await assertFails(getDoc(doc(db, `socialAccounts/${platform}`)));
+      await assertFails(setDoc(doc(db, `socialAccounts/${platform}`), { accountId: "123" }));
+    }
   });
 });
 

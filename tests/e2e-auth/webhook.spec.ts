@@ -137,3 +137,33 @@ test("the scheduler reports what is due and publishes nothing (§49, §67)", asy
   expect(payload.published).toBeUndefined();
   expect(payload.detail).toContain("Module 16");
 });
+
+test("an unsigned token-expiry request is rejected", async ({ request }) => {
+  const response = await request.post("/api/webhooks/social/tokens", {
+    data: JSON.stringify({ trigger: "tokens" }),
+    headers: { "content-type": "application/json" },
+  });
+
+  expect(response.status()).toBe(401);
+});
+
+test("the token-expiry tick reports what it checked and warns nobody (§19)", async ({
+  request,
+}) => {
+  const body = JSON.stringify({ trigger: "tokens" });
+
+  const response = await request.post("/api/webhooks/social/tokens", {
+    headers: signed(body),
+    data: body,
+  });
+
+  expect(response.status()).toBe(200);
+
+  const payload = await response.json();
+
+  // No account is connected in this run, so there is nothing to warn about —
+  // and silence is the correct outcome, not an "all fine" message.
+  expect(payload.checked).toBe(0);
+  expect(payload.alerted).toBe(false);
+  expect(payload.expiring).toEqual([]);
+});

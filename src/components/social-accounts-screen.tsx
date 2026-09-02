@@ -6,8 +6,10 @@ import { useFormStatus } from "react-dom";
 import {
   connectFacebook,
   connectInstagram,
+  connectLinkedIn,
   disconnectFacebook,
   disconnectInstagram,
+  disconnectLinkedIn,
   type ConnectFormState,
 } from "@/app/(app)/social-accounts/actions";
 import { PLATFORM_LABELS } from "@/components/post-status-badge";
@@ -205,6 +207,95 @@ function MetaConnect({
   );
 }
 
+/**
+ * How close to expiry LinkedIn's token is, said plainly.
+ *
+ * §42 asks the screen to surface expiry state. It matters more here than
+ * anywhere else in this system: LinkedIn issues no refresh token, so this line
+ * is the only warning a human gets before publishing starts failing.
+ *
+ * The status is derived on the server by `statusForExpiry`, not recomputed
+ * here — one implementation of §19's window, and no clock reading during
+ * render.
+ */
+function ExpiryNotice({ account }: { account: SocialAccountView }) {
+  if (!account.expiresAt) return null;
+
+  const urgent = account.status === "EXPIRED" || account.status === "EXPIRING";
+
+  return (
+    <p
+      data-testid="expiry"
+      className={cn("text-xs", urgent ? "font-medium text-destructive" : "text-muted-foreground")}
+    >
+      {account.status === "EXPIRED"
+        ? `This token expired on ${account.expiresAt}. Reconnect before anything can publish.`
+        : `This token expires ${account.expiresAt}. LinkedIn issues no refresh token, so it must be reconnected by hand.`}
+    </p>
+  );
+}
+
+/**
+ * The LinkedIn connect form.
+ *
+ * One field, not the Meta pair: there is no Page to choose, and 3-legged OAuth
+ * needs a registered HTTPS redirect URL this system does not have until it is
+ * deployed. LinkedIn's developer portal issues a token directly to an app's own
+ * owner, which is the case here.
+ */
+function LinkedInConnect({ connected }: { connected: SocialAccountView | undefined }) {
+  const [connectState, connect] = useActionState(connectLinkedIn, INITIAL);
+  const [disconnectState, disconnect] = useActionState(disconnectLinkedIn, INITIAL);
+
+  if (connected) {
+    return (
+      <div className="mt-3 space-y-2">
+        <p className="text-sm">
+          Posting as <span className="font-medium">{connected.accountName}</span> (
+          {connected.accountId}).
+        </p>
+
+        <ExpiryNotice account={connected} />
+
+        {connected.lastError ? (
+          <p className="text-xs text-destructive">Last problem: {connected.lastError}</p>
+        ) : null}
+
+        <form action={disconnect}>
+          <SubmitButton idle="Disconnect" busy="Disconnecting…" variant="destructive" />
+        </form>
+
+        <Message state={disconnectState} />
+      </div>
+    );
+  }
+
+  return (
+    <form action={connect} className="mt-3 space-y-2">
+      <div className="flex flex-col gap-1">
+        <label htmlFor="linkedinToken" className="text-xs font-medium">
+          LinkedIn access token
+        </label>
+        <input
+          id="linkedinToken"
+          name="accessToken"
+          type="password"
+          autoComplete="off"
+          className="h-8 w-full max-w-lg rounded-lg border border-border bg-background px-2.5 text-sm"
+        />
+        <p className="text-xs text-muted-foreground">
+          Granted openid, profile and w_member_social. Its real expiry is read back from LinkedIn
+          rather than assumed, and it is stored encrypted; it is never shown again.
+        </p>
+      </div>
+
+      <SubmitButton idle="Connect profile" busy="Connecting…" />
+
+      <Message state={connectState} />
+    </form>
+  );
+}
+
 export function SocialAccountsScreen({
   capabilities,
   accounts,
@@ -251,6 +342,10 @@ export function SocialAccountsScreen({
 
             {canManage && metaConnect ? (
               <MetaConnect config={metaConnect} connected={connected} />
+            ) : null}
+
+            {canManage && capability.platform === "LINKEDIN" ? (
+              <LinkedInConnect connected={connected} />
             ) : null}
           </section>
         );
