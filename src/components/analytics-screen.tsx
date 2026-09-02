@@ -17,14 +17,14 @@ import { cn } from "@/lib/utils";
  * everything and lets a reader scan groups, since a week's post count is
  * small enough that hiding rows would cost more than it saves.
  */
-const FORMAT_LABELS: Record<string, string> = {
+export const FORMAT_LABELS: Record<string, string> = {
   HEADLINE_CARD: "Headline card",
   QUOTE_CARD: "Quote card",
   STATISTIC_CARD: "Statistic card",
   EDUCATIONAL_CARD: "Educational card",
 };
 
-function labelFor(key: string): string {
+export function labelFor(key: string): string {
   return PLATFORM_LABELS[key] ?? FORMAT_LABELS[key] ?? key;
 }
 
