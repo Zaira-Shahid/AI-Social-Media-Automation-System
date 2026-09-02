@@ -190,5 +190,4 @@ items and the audit log are the trail.
 
 ### Next
 
-Module 08 — Static Post Generator. Module 05's WhatsApp swap is still open on
-`feature/module-05-whatsapp-notification`.
+Module 08 — Static Post Generator.
