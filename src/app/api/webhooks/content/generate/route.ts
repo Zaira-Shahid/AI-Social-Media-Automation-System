@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { runContentGeneration, GenerationError } from "@/lib/content/generate";
+import { isWorkflowEnabled } from "@/lib/automation/gate";
+import { CONTENT_GENERATION_WORKFLOW, runContentGeneration, GenerationError } from "@/lib/content/generate";
 import { getServerEnv } from "@/lib/env.server";
 import { logger } from "@/lib/logger";
 import { SIGNATURE_HEADER, TIMESTAMP_HEADER, verifySignature } from "@/lib/webhooks/signature";
@@ -40,6 +41,12 @@ export async function POST(request: Request) {
     logger.warn("Rejected content generation webhook", { reason: verification.reason });
 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!(await isWorkflowEnabled(CONTENT_GENERATION_WORKFLOW))) {
+    logger.info("Content generation skipped: disabled from the Automation Control Center");
+
+    return NextResponse.json({ skipped: true, reason: "This automation is disabled." });
   }
 
   try {

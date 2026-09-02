@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { isWorkflowEnabled } from "@/lib/automation/gate";
 import { getServerEnv } from "@/lib/env.server";
 import { logger } from "@/lib/logger";
+import { NEWS_SHORTLIST_WORKFLOW } from "@/lib/slack/schema";
 import { sendShortlistNotification } from "@/lib/slack/notify";
 import { SIGNATURE_HEADER, TIMESTAMP_HEADER, verifySignature } from "@/lib/webhooks/signature";
 
@@ -35,6 +37,12 @@ export async function POST(request: Request) {
     logger.warn("Rejected shortlist notification webhook", { reason: verification.reason });
 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!(await isWorkflowEnabled(NEWS_SHORTLIST_WORKFLOW))) {
+    logger.info("Shortlist notification skipped: disabled from the Automation Control Center");
+
+    return NextResponse.json({ skipped: true, reason: "This automation is disabled." });
   }
 
   try {

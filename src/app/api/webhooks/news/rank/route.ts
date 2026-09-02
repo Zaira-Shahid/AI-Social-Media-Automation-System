@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { isWorkflowEnabled } from "@/lib/automation/gate";
 import { getServerEnv } from "@/lib/env.server";
 import { logger } from "@/lib/logger";
-import { runNewsRanking } from "@/lib/news/rank";
+import { NEWS_RANKING_WORKFLOW, runNewsRanking } from "@/lib/news/rank";
 import { SIGNATURE_HEADER, TIMESTAMP_HEADER, verifySignature } from "@/lib/webhooks/signature";
 
 /**
@@ -38,6 +39,12 @@ export async function POST(request: Request) {
     logger.warn("Rejected news ranking webhook", { reason: verification.reason });
 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!(await isWorkflowEnabled(NEWS_RANKING_WORKFLOW))) {
+    logger.info("News ranking skipped: disabled from the Automation Control Center");
+
+    return NextResponse.json({ skipped: true, reason: "This automation is disabled." });
   }
 
   try {

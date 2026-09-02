@@ -1,6 +1,8 @@
 import "server-only";
 
 import { recordAudit } from "@/lib/audit";
+import { NO_SOURCE_METRICS, PUBLISHING_WORKFLOW } from "@/lib/automation/schema";
+import { recordAutomationRun } from "@/lib/automation/store";
 import type { Platform, PlatformPost } from "@/lib/content/schema";
 import { collectDuePosts } from "@/lib/content/schedule";
 import {
@@ -344,32 +346,70 @@ async function notifyFailures(failures: PostPublishOutcome[]): Promise<boolean> 
  * nine concurrent ones are how a run trips a limit it need never have met.
  */
 export async function runDuePublishing(now: Date = new Date()): Promise<PublishRunOutcome> {
-  const due = await collectDuePosts(now);
-  const batch = due.posts.slice(0, MAX_PUBLISHES_PER_RUN);
+  const startedAt = now.toISOString();
 
-  if (batch.length < due.posts.length) {
-    logger.warn("More posts are due than one run publishes", {
-      due: due.posts.length,
-      limit: MAX_PUBLISHES_PER_RUN,
+  try {
+    const due = await collectDuePosts(now);
+    const batch = due.posts.slice(0, MAX_PUBLISHES_PER_RUN);
+
+    if (batch.length < due.posts.length) {
+      logger.warn("More posts are due than one run publishes", {
+        due: due.posts.length,
+        limit: MAX_PUBLISHES_PER_RUN,
+      });
+    }
+
+    const outcomes: PostPublishOutcome[] = [];
+
+    for (const post of batch) {
+      outcomes.push(await publishOne(post, now));
+    }
+
+    const failures = outcomes.filter((outcome) => outcome.status === "FAILED");
+    const notified = await notifyFailures(failures);
+
+    const result: PublishRunOutcome = {
+      due: due.due,
+      published: outcomes.filter((outcome) => outcome.status === "PUBLISHED").length,
+      failed: failures.length,
+      retrying: outcomes.filter((outcome) => outcome.status === "RETRYING").length,
+      skipped: outcomes.filter((outcome) => outcome.status === "SKIPPED").length,
+      outcomes,
+      notified,
+    };
+
+    // §41, §63 Module 20: this endpoint stays side-effect free otherwise —
+    // this write is bookkeeping about the run, not a second effect of it.
+    await recordAutomationRun({
+      workflow: PUBLISHING_WORKFLOW,
+      status: result.failed > 0 && result.published === 0 ? "FAILURE" : result.failed > 0 ? "PARTIAL" : "SUCCESS",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error: failures.length > 0 ? failures.map((f) => f.reason).join("; ").slice(0, 500) : null,
+      trigger: "WEBHOOK",
+      metrics: {
+        due: result.due,
+        published: result.published,
+        failed: result.failed,
+        retrying: result.retrying,
+        skipped: result.skipped,
+      },
     });
+
+    return result;
+  } catch (error) {
+    await recordAutomationRun({
+      workflow: PUBLISHING_WORKFLOW,
+      status: "FAILURE",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+      trigger: "WEBHOOK",
+      metrics: {},
+    });
+
+    throw error;
   }
-
-  const outcomes: PostPublishOutcome[] = [];
-
-  for (const post of batch) {
-    outcomes.push(await publishOne(post, now));
-  }
-
-  const failures = outcomes.filter((outcome) => outcome.status === "FAILED");
-  const notified = await notifyFailures(failures);
-
-  return {
-    due: due.due,
-    published: outcomes.filter((outcome) => outcome.status === "PUBLISHED").length,
-    failed: failures.length,
-    retrying: outcomes.filter((outcome) => outcome.status === "RETRYING").length,
-    skipped: outcomes.filter((outcome) => outcome.status === "SKIPPED").length,
-    outcomes,
-    notified,
-  };
 }

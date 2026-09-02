@@ -3,6 +3,8 @@ import "server-only";
 import { getAIProvider } from "@/lib/ai";
 import type { AIProvider } from "@/lib/ai/provider";
 import { recordAudit } from "@/lib/audit";
+import { NO_SOURCE_METRICS } from "@/lib/automation/schema";
+import { recordAutomationRun } from "@/lib/automation/store";
 import { logger } from "@/lib/logger";
 import { listRecentWeeklyReports, type StoredWeeklyReport } from "@/lib/reporting/store";
 import { aggregateWeighting } from "@/lib/strategy/compute";
@@ -134,10 +136,57 @@ export interface StrategyOptimizationOutcome {
 /**
  * Run strategy optimization over the last `STRATEGY_LOOKBACK_WEEKS` weekly
  * reports and save the next version.
+ *
+ * Wrapped so both the normal result and an unexpected throw each record
+ * exactly one automation run (§41, §63 Module 20).
  */
 export async function runStrategyOptimization(
   actor: string,
   now: Date = new Date(),
+): Promise<StrategyOptimizationOutcome> {
+  const startedAt = now.toISOString();
+  // Same convention as `content/generate.ts`: the webhook passes
+  // "system:strategy"; a person's own uid means the manual "Regenerate now" button.
+  const trigger: "WEBHOOK" | "MANUAL" = actor === "system:strategy" ? "WEBHOOK" : "MANUAL";
+
+  try {
+    const outcome = await runStrategyOptimizationInner(actor, now);
+
+    await recordAutomationRun({
+      workflow: STRATEGY_OPTIMIZATION_WORKFLOW,
+      status: "SUCCESS",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error: null,
+      trigger,
+      metrics: {
+        version: outcome.version,
+        weeksAnalyzed: outcome.weeksAnalyzed,
+        postsAnalyzed: outcome.postsAnalyzed,
+      },
+    });
+
+    return outcome;
+  } catch (error) {
+    await recordAutomationRun({
+      workflow: STRATEGY_OPTIMIZATION_WORKFLOW,
+      status: "FAILURE",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+      trigger,
+      metrics: {},
+    });
+
+    throw error;
+  }
+}
+
+async function runStrategyOptimizationInner(
+  actor: string,
+  now: Date,
 ): Promise<StrategyOptimizationOutcome> {
   const weeks: StoredWeeklyReport[] = await listRecentWeeklyReports(STRATEGY_LOOKBACK_WEEKS);
 

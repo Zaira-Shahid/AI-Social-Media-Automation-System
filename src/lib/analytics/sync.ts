@@ -1,6 +1,8 @@
 import "server-only";
 
 import { recordAudit } from "@/lib/audit";
+import { ANALYTICS_SYNC_WORKFLOW, NO_SOURCE_METRICS } from "@/lib/automation/schema";
+import { recordAutomationRun } from "@/lib/automation/store";
 import type { Platform } from "@/lib/content/schema";
 import { listPublishedPosts, type StoredPlatformPost } from "@/lib/content/store";
 import { logger } from "@/lib/logger";
@@ -134,32 +136,68 @@ export async function syncOne(
  * publishing engine already follow: every platform version has its own fate.
  */
 export async function runAnalyticsSync(now: Date = new Date()): Promise<AnalyticsSyncOutcome> {
-  const posts = await listPublishedPosts(MAX_SYNCS_PER_RUN);
+  const startedAt = now.toISOString();
 
-  const outcomes: PostSyncOutcome[] = [];
+  try {
+    const posts = await listPublishedPosts(MAX_SYNCS_PER_RUN);
 
-  for (const post of posts) {
-    outcomes.push(await syncOne(post, now));
+    const outcomes: PostSyncOutcome[] = [];
+
+    for (const post of posts) {
+      outcomes.push(await syncOne(post, now));
+    }
+
+    const synced = outcomes.filter((outcome) => outcome.status === "SYNCED").length;
+    const failed = outcomes.filter((outcome) => outcome.status === "FAILED").length;
+    const skipped = outcomes.filter((outcome) => outcome.status === "SKIPPED").length;
+
+    await recordAudit({
+      actor: "system:analytics",
+      action: "ANALYTICS_SYNCED",
+      resource: "analytics",
+      status: failed > 0 && synced === 0 && skipped === 0 ? "FAILURE" : "SUCCESS",
+      metadata: { candidates: posts.length, synced, failed, skipped },
+    });
+
+    // §41, §63 Module 20.
+    await recordAutomationRun({
+      workflow: ANALYTICS_SYNC_WORKFLOW,
+      status: failed > 0 && synced === 0 ? "FAILURE" : failed > 0 ? "PARTIAL" : "SUCCESS",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error:
+        failed > 0
+          ? outcomes
+              .filter((outcome) => outcome.status === "FAILED")
+              .map((outcome) => `${outcome.platformPostId}: ${outcome.reason}`)
+              .join("; ")
+              .slice(0, 500)
+          : null,
+      trigger: "WEBHOOK",
+      metrics: { candidates: posts.length, synced, failed, skipped },
+    });
+
+    logger.info("Analytics sync run finished", {
+      candidates: posts.length,
+      synced,
+      failed,
+      skipped,
+    });
+
+    return { candidates: posts.length, synced, skipped, failed, outcomes };
+  } catch (error) {
+    await recordAutomationRun({
+      workflow: ANALYTICS_SYNC_WORKFLOW,
+      status: "FAILURE",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...NO_SOURCE_METRICS,
+      error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+      trigger: "WEBHOOK",
+      metrics: {},
+    });
+
+    throw error;
   }
-
-  const synced = outcomes.filter((outcome) => outcome.status === "SYNCED").length;
-  const failed = outcomes.filter((outcome) => outcome.status === "FAILED").length;
-  const skipped = outcomes.filter((outcome) => outcome.status === "SKIPPED").length;
-
-  await recordAudit({
-    actor: "system:analytics",
-    action: "ANALYTICS_SYNCED",
-    resource: "analytics",
-    status: failed > 0 && synced === 0 && skipped === 0 ? "FAILURE" : "SUCCESS",
-    metadata: { candidates: posts.length, synced, failed, skipped },
-  });
-
-  logger.info("Analytics sync run finished", {
-    candidates: posts.length,
-    synced,
-    failed,
-    skipped,
-  });
-
-  return { candidates: posts.length, synced, skipped, failed, outcomes };
 }

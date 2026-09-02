@@ -114,6 +114,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Automation enable/disable (§41, §63 Module 20). Server-only — the
+    // toggle goes through `strategy:manage`'s sibling permission,
+    // `automations:manage`, checked in the server action; a client that could
+    // write this collection could switch an automation off without going
+    // through that check at all.
+    match /automationSettings/{document} {
+      allow read, write: if false;
+    }
+
     // Notification delivery records (§9). Server-only for the same reason as
     // automation runs: a client that can write these can claim the team was
     // told about a shortlist it never saw (§67). The news screen reads them

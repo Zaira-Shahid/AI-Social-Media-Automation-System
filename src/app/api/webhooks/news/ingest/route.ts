@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { isWorkflowEnabled } from "@/lib/automation/gate";
 import { getServerEnv } from "@/lib/env.server";
 import { logger } from "@/lib/logger";
-import { runNewsDiscovery } from "@/lib/news/ingest";
+import { NEWS_DISCOVERY_WORKFLOW, runNewsDiscovery } from "@/lib/news/ingest";
 import { SIGNATURE_HEADER, TIMESTAMP_HEADER, verifySignature } from "@/lib/webhooks/signature";
 
 /**
@@ -43,6 +44,12 @@ export async function POST(request: Request) {
     logger.warn("Rejected news ingestion webhook", { reason: verification.reason });
 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!(await isWorkflowEnabled(NEWS_DISCOVERY_WORKFLOW))) {
+    logger.info("News discovery skipped: disabled from the Automation Control Center");
+
+    return NextResponse.json({ skipped: true, reason: "This automation is disabled." });
   }
 
   try {
