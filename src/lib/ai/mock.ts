@@ -54,6 +54,8 @@ function buildMockResponse(request: CompletionRequest): unknown {
       return buildPlatformVersions(request);
     case "weekly_performance_narrative":
       return buildPerformanceNarrative(request);
+    case "strategy_recommendations":
+      return buildStrategyRecommendations(request);
     default:
       throw new Error(
         `The mock provider has no response for schema "${request.schemaName}". ` +
@@ -159,6 +161,21 @@ function buildPerformanceNarrative(request: CompletionRequest): unknown {
       "measured post(s) for this window.",
     recommendedChanges: [
       "Simulated recommendation — set AI_PROVIDER to generate a real one.",
+    ],
+  };
+}
+
+/** Echoes the weeks/posts count rather than inventing a strategy (§21, §67). */
+function buildStrategyRecommendations(request: CompletionRequest): unknown {
+  const weeksAnalyzed = request.prompt.match(/^Weeks analyzed:\s*(\d+)/m)?.[1] ?? "0";
+
+  return {
+    recommendations: [
+      {
+        category: "TOPIC_WEIGHTING",
+        recommendation: "Simulated recommendation — set AI_PROVIDER to generate a real one.",
+        reason: `Simulated reasoning based on ${weeksAnalyzed} week(s) of simulated data.`,
+      },
     ],
   };
 }

@@ -154,6 +154,19 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Strategy reports (§24, §25, §32, §63 Module 19). Readable by any
+    // signed-in user — the Strategy screen's read model, same as `analytics`
+    // and `weeklyReports`.
+    //
+    // No client write at any role. A recommendation is only trustworthy
+    // because it traces back to real, stored analytics (§25) — a client that
+    // could write this collection could plant a "recommendation" with no
+    // evidence behind it at all.
+    match /strategyReports/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     // Audit logs (§55) are server-only. Denied outright, including reads: an
     // audit trail a client can read is a map of who did what, and one a
     // client can write is not evidence of anything (§33).
