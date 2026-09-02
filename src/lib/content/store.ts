@@ -368,6 +368,28 @@ export async function listPublishedPosts(limit: number): Promise<StoredPlatformP
     .filter((post): post is StoredPlatformPost => post !== null);
 }
 
+/**
+ * Published posts within a UTC window, for Module 18's weekly report.
+ *
+ * `publishedAt` is a range filter alongside the `status` equality, so this
+ * needs its own composite index (`firestore.indexes.json`), unlike
+ * `listPublishedPosts`'s single equality filter above.
+ */
+export async function listPublishedPostsBetween(
+  fromIso: string,
+  toIso: string,
+): Promise<StoredPlatformPost[]> {
+  const snapshot = await platformPosts()
+    .where("status", "==", "PUBLISHED")
+    .where("publishedAt", ">=", fromIso)
+    .where("publishedAt", "<", toIso)
+    .get();
+
+  return snapshot.docs
+    .map((document) => parsePlatformPost(document.id, document.data()))
+    .filter((post): post is StoredPlatformPost => post !== null);
+}
+
 /** Content items by id, for screens that start from posts rather than stories. */
 export async function getContentItemsByIds(ids: string[]): Promise<StoredContentItem[]> {
   if (ids.length === 0) return [];
