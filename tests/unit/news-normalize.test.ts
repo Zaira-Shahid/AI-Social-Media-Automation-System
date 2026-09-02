@@ -5,6 +5,7 @@ import {
   duplicateGroupKey,
   newsItemId,
   normalizeEntry,
+  firstCategory,
   normalizeFeed,
   toPlainText,
   type FeedEntry,
@@ -109,6 +110,36 @@ describe("duplicateGroupKey", () => {
   });
 });
 
+describe("firstCategory", () => {
+  it("takes a plain string category", () => {
+    expect(firstCategory({ categories: ["Enterprise"] })).toBe("Enterprise");
+  });
+
+  it("reads an RSS category that carries a domain attribute", () => {
+    // <category domain="https://example.test/cat">Enterprise</category>
+    expect(firstCategory({ categories: [{ _: "Enterprise", $: { domain: "x" } }] })).toBe(
+      "Enterprise",
+    );
+  });
+
+  it("reads an Atom category, whose text is in the term attribute", () => {
+    // <category term="Enterprise"/> — no body at all.
+    expect(firstCategory({ categories: [{ $: { term: "Enterprise" } }] })).toBe("Enterprise");
+  });
+
+  it("skips entries it cannot read rather than stringifying them", () => {
+    expect(firstCategory({ categories: [{ $: { domain: "x" } }, "Enterprise"] })).toBe(
+      "Enterprise",
+    );
+    expect(firstCategory({ categories: [{ $: { domain: "x" } }] })).toBeNull();
+    expect(firstCategory({ categories: [null, "", "  "] })).toBeNull();
+  });
+
+  it("is null when the feed offers no categories", () => {
+    expect(firstCategory({})).toBeNull();
+  });
+});
+
 describe("normalizeEntry", () => {
   it("normalizes an RSS entry", () => {
     const result = normalizeEntry(RSS_ENTRY, SOURCE, RETRIEVED_AT);
@@ -191,6 +222,31 @@ describe("normalizeEntry", () => {
     const result = normalizeEntry({ ...RSS_ENTRY, title: "x".repeat(900) }, SOURCE, RETRIEVED_AT);
 
     expect(result?.item.title).toHaveLength(500);
+  });
+});
+
+describe("normalizeEntry and object categories", () => {
+  /*
+   * The bug this guards: `categories` was typed `string[]` and used with
+   * `.slice(0, 60)`, so a feed sending category objects threw
+   * "…slice is not a function" and every item in that feed was lost.
+   */
+  it("normalizes an entry whose categories are objects, falling back where unreadable", () => {
+    const withObject = normalizeEntry(
+      { ...RSS_ENTRY, categories: [{ $: { domain: "https://example.test/c" } }] },
+      SOURCE,
+      RETRIEVED_AT,
+    );
+
+    expect(withObject?.item.category).toBe("AI");
+
+    const withTerm = normalizeEntry(
+      { ...RSS_ENTRY, categories: [{ $: { term: "Enterprise" } }] },
+      SOURCE,
+      RETRIEVED_AT,
+    );
+
+    expect(withTerm?.item.category).toBe("Enterprise");
   });
 });
 

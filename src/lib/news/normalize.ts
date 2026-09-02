@@ -18,7 +18,15 @@ export interface FeedEntry {
   contentSnippet?: string;
   content?: string;
   summary?: string;
-  categories?: string[];
+  /*
+   * `unknown[]`, not `string[]`, because that is what `rss-parser` actually
+   * hands back. A bare `<category>Tech</category>` parses to a string, but a
+   * category carrying attributes — `<category domain="...">Tech</category>`
+   * in RSS, `<category term="Tech"/>` in Atom — parses to an object. Typing
+   * this as `string[]` did not make it so; it only moved the discovery to
+   * runtime, where `.slice` on an object took the whole feed down.
+   */
+  categories?: unknown[];
   enclosure?: { url?: string; type?: string };
   ["media:content"]?: { $?: { url?: string } };
   ["media:thumbnail"]?: { $?: { url?: string } };
@@ -151,6 +159,42 @@ export interface NormalizedEntry {
 }
 
 /**
+ * The first usable category a feed offers, or null.
+ *
+ * Feeds disagree about what a category *is*. `rss-parser` passes each one
+ * through as it found it, so an entry's `categories` can hold plain strings,
+ * RSS objects carrying the text in `_` alongside a `domain` attribute, or
+ * Atom objects where the text lives in the `term` attribute and there is no
+ * body at all. All three are legitimate feeds.
+ *
+ * Anything that yields no text is skipped rather than stringified: `"[object
+ * Object]"` stored as a category would be worse than falling back to the
+ * source's own, which is what the caller does with a null.
+ */
+export function firstCategory(entry: FeedEntry): string | null {
+  for (const raw of entry.categories ?? []) {
+    if (typeof raw === "string") {
+      const text = raw.trim();
+
+      if (text) return text;
+
+      continue;
+    }
+
+    if (typeof raw !== "object" || raw === null) continue;
+
+    const record = raw as { _?: unknown; $?: { term?: unknown; label?: unknown } };
+    const candidate = [record._, record.$?.term, record.$?.label].find(
+      (value) => typeof value === "string" && value.trim().length > 0,
+    );
+
+    if (typeof candidate === "string") return candidate.trim();
+  }
+
+  return null;
+}
+
+/**
  * Normalize one entry. Returns null when the entry cannot be used.
  *
  * An entry with no title or no link is skipped rather than stored with a
@@ -178,7 +222,7 @@ export function normalizeEntry(
     publishedAt: publishedAt(entry, retrievedAt),
     retrievedAt,
     // The feed's own category wins when it has one; otherwise the source's.
-    category: (entry.categories?.[0] ?? source.category ?? "").slice(0, 60),
+    category: (firstCategory(entry) ?? source.category ?? "").slice(0, 60),
     imageUrl: firstImage(entry),
     duplicateGroup: duplicateGroupKey(title),
     status: "DISCOVERED" as const,
