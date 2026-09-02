@@ -142,6 +142,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Weekly performance reports (§23, §32, §63 Module 18). Readable by any
+    // signed-in user — the Analytics screen's read model.
+    //
+    // No client write at any role. Every comparison here is computed from
+    // `analytics`, which is itself server-only; a client that could write
+    // this collection could overwrite an honest "no data this week" with a
+    // fabricated report (§22, §67).
+    match /weeklyReports/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     // Audit logs (§55) are server-only. Denied outright, including reads: an
     // audit trail a client can read is a map of who did what, and one a
     // client can write is not evidence of anything (§33).

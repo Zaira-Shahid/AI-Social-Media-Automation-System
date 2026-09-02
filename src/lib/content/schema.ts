@@ -85,6 +85,8 @@ export const VISUAL_TEMPLATES = [
   "EDUCATIONAL_CARD",
 ] as const;
 
+export type VisualTemplate = (typeof VISUAL_TEMPLATES)[number];
+
 export const visualConceptSchema = z.object({
   template: z.enum(VISUAL_TEMPLATES),
   /** The few words that carry the card. Short, because it is rendered large. */

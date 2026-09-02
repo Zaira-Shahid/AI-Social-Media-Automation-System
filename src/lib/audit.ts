@@ -35,7 +35,15 @@ export type AuditAction =
    * important action by §55's own standard, and the alternative — reusing a
    * listed action that means something else — would make the trail worse.
    */
-  | "NOTIFICATION_SENT";
+  | "NOTIFICATION_SENT"
+  /*
+   * Same reasoning as `NOTIFICATION_SENT`. `STRATEGY_GENERATED` is Module
+   * 19's — a strategy recommendation is a different, later action from this
+   * one, which is Module 18 computing and saving the weekly comparison
+   * itself. Reusing `STRATEGY_GENERATED` for a module that generates no
+   * strategy would misname the trail.
+   */
+  | "WEEKLY_REPORT_GENERATED";
 
 export interface AuditEntry {
   /** UID of the acting user, or a named system actor for automation. */

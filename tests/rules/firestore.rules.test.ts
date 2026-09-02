@@ -58,11 +58,13 @@ describe("firestore.rules baseline", () => {
   });
 
   it("denies reads of an unopened collection even to an authenticated client", async () => {
-    // `contentItems` stood here until Module 07 opened it for reading. The
-    // point of the test is the catch-all, so it now names a collection no
-    // module has opened yet.
+    // `contentItems` stood here until Module 07 opened it for reading, then
+    // `analytics` until Module 17 opened that one too. The point of the test
+    // is the catch-all, so it now names a collection no module has opened
+    // yet — `automationLogs` (§32), distinct from `automationRuns`, which is
+    // opened but server-only.
     const db = testEnv.authenticatedContext("user-1").firestore();
-    await assertFails(getDoc(doc(db, "analytics/any-id")));
+    await assertFails(getDoc(doc(db, "automationLogs/any-id")));
   });
 
   it("denies writes to platform posts, which are server-only", async () => {
