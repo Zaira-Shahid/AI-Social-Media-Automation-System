@@ -81,3 +81,35 @@ test("the user is returned to the page they originally asked for", async ({ page
   // matters is that the redirect target was honoured rather than dropped.
   await expect(page).toHaveURL("/analytics");
 });
+
+/**
+ * §22 Module 22, §56: `proxy.ts` sets a nonce-based Content-Security-Policy
+ * on every page. A real sign-in is the highest-risk path for a CSP to break
+ * — `getClientAuth()`'s call to `identitytoolkit.googleapis.com` has to
+ * survive `connect-src`, and Next's own inline hydration scripts have to
+ * survive `script-src` — so this proves both rather than asserting the
+ * header's text in isolation.
+ */
+test("sign-in succeeds under the CSP the proxy sets, and the header is scoped as expected", async ({
+  page,
+}) => {
+  const response = await page.goto("/login");
+  const csp = response?.headers()["content-security-policy"];
+
+  expect(csp).toBeTruthy();
+  expect(csp).toContain("default-src 'self'");
+  expect(csp).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
+  expect(csp).toContain("https://identitytoolkit.googleapis.com");
+  expect(csp).toContain("frame-ancestors 'none'");
+
+  await page.getByLabel("Email").fill(E2E_USER.email);
+  await page.getByLabel("Password").fill(E2E_USER.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  // If the CSP blocked the sign-in request or Next's own hydration script,
+  // this would time out on the login page instead of navigating away.
+  await expect(page).toHaveURL("/");
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login/);
+});
