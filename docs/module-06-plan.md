@@ -161,5 +161,4 @@ generation — including n8n's `04_news_selection_processing`.
 
 ### Next
 
-Module 07 — AI Content Generation. Note that Module 05's WhatsApp swap is still
-open on `feature/module-05-whatsapp-notification`.
+Module 07 — AI Content Generation.

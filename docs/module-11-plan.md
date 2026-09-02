@@ -162,5 +162,4 @@ through the configured zone, which the page passes down explicitly.
 
 ### Next
 
-Module 12 — Facebook Integration. Module 05's WhatsApp swap is still open on
-`feature/module-05-whatsapp-notification`.
+Module 12 — Facebook Integration.

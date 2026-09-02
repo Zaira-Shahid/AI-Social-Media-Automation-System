@@ -201,6 +201,18 @@ Until then every message is labelled Simulated in the UI and stored as `MOCK`.
 **Deploy the new indexes before the first real run:**
 `firebase deploy --only firestore:indexes`.
 
+### The transport question is closed (2026-09-02)
+
+After Module 05 shipped, moving internal notifications from Slack to WhatsApp
+was explored on `feature/module-05-whatsapp-notification`. That branch held one
+commit, and it changed the specification only — no code was ever written
+against it, and it was never merged.
+
+**The decision is to stay on Slack.** The branch has been deleted without being
+merged, and §9 stands as written. Nothing in this module changes: the
+`NewsNotifier` abstraction (§3.1) is what would absorb a different transport if
+that question is ever reopened, so reopening it would not start from here.
+
 ### Next
 
 Module 06 — Human News Selection.

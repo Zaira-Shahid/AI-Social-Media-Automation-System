@@ -154,5 +154,4 @@ keep.
 
 ### Next
 
-Module 11 — Scheduling Engine, which fills in `scheduledAt`. Module 05's
-WhatsApp swap is still open on `feature/module-05-whatsapp-notification`.
+Module 11 — Scheduling Engine, which fills in `scheduledAt`.
