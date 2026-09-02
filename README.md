@@ -1,399 +1,219 @@
-# Internal AI Social Media Automation System
+# AI Social Media Automation Platform
 
-Internal tool that researches industry news, drafts brand-aligned social
-posts, routes them through human approval, and publishes to Facebook,
-Instagram and LinkedIn on a schedule.
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![Firebase](https://img.shields.io/badge/Firebase-Firestore%20%2B%20Auth-FFCA28?logo=firebase&logoColor=black)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-06B6D4?logo=tailwindcss&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-510%20unit%20%C2%B7%2086%20e2e-2E7D32)
 
-The authoritative specification is
-[AI-Social-Media-Automation-System.md](AI-Social-Media-Automation-System.md).
-It governs every decision in this repository; this README only covers how to
-run what exists today.
+An internal operations platform that runs a company's social media program
+end to end: it researches industry news, drafts brand-aligned posts for
+Facebook, Instagram and LinkedIn, renders a branded static image for each
+one, routes every version through human approval, publishes on schedule, and
+closes the loop with real analytics and AI-generated weekly strategy
+recommendations — all under human control, with nothing published without
+sign-off.
 
-## Status
+It is built around one non-negotiable rule: **the system never fabricates a
+result.** A simulated publish is labelled `MOCK`, never shown as live. A
+metric a platform doesn't return is stored as the literal word
+`UNAVAILABLE`, never a fabricated zero. A strategy recommendation always
+cites the real, stored numbers behind it. That discipline — honest about
+what's real, what's simulated, and what genuinely isn't available — runs
+through every layer of the codebase.
 
-| Module | State |
+## Screenshots
+
+| Dashboard | Content Review Queue | Analytics |
+|---|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Content Review Queue](docs/screenshots/content-review.png) | ![Analytics](docs/screenshots/analytics.png) |
+
+*(Screenshots pending — drop `dashboard.png`, `content-review.png` and
+`analytics.png` into `docs/screenshots/` to populate this table.)*
+
+## Key Features
+
+**Editorial pipeline**
+- Configurable RSS news sources, deduplicated and normalized on ingest
+- AI relevance, credibility and social-potential scoring produces a daily shortlist
+- A human picks exactly three stories a day — the system never posts on its own agenda
+- AI drafts a platform-tailored version for each of Facebook, Instagram and LinkedIn from one core message, with its own tone, length and hashtags per platform
+- Branded static cards rendered server-side (Satori → SVG → PNG), no headless browser
+- Per-platform approval workflow — one weak version never blocks the other two
+
+**Publishing & scheduling**
+- Real integrations against Meta's Graph API and LinkedIn's REST API, each behind a mock mode so nothing reaches a live account until deliberately switched on
+- Timezone-aware calendar with double-post conflict detection
+- Idempotent publishing: a retry can never create a duplicate post
+- OAuth tokens encrypted at rest (AES-256-GCM), never logged, never shown
+
+**Analytics & strategy**
+- Real platform metrics synced automatically post-publish — never fabricated where a platform doesn't provide a number
+- Weekly AI-written performance reports: best/weakest posts, platform and topic comparisons, all computed only from what was actually measured
+- Versioned AI strategy recommendations, each one citing the evidence behind it, with full history retained
+
+**Operations**
+- Automation Control Center: every scheduled workflow's status, run history, a manual re-run, and an on/off switch
+- Full audit trail of every consequential action
+- Role-based access control (Admin / Manager / Social Manager) enforced server-side, never trusted from the client
+- Firestore Security Rules default-closed, opened collection by collection
+- Nonce-based Content-Security-Policy, HMAC-signed webhooks, and a dependency/security audit baked into the workflow
+
+## Architecture
+
+```
+RSS feeds ──▶ Ingest & normalize ──▶ AI ranking ──▶ Daily shortlist ──▶ Slack
+                                                                          │
+                                                            Human picks 3 stories
+                                                                          │
+                                                                          ▼
+                                          AI content generation (per platform)
+                                                                          │
+                                                          Branded card rendering
+                                                                          │
+                                                        Human review & approval
+                                                                          │
+                                                            Calendar & scheduling
+                                                                          │
+                                          ┌────────────── Publishing ─────┴────────────────┐
+                                          ▼                                                 ▼
+                                 Facebook / Instagram                                  LinkedIn
+                                          │                                                 │
+                                          └──────────────────┬──────────────────────────────┘
+                                                               ▼
+                                                   Analytics sync (real, per platform)
+                                                               │
+                                                   Weekly AI performance report
+                                                               │
+                                                   Versioned AI strategy recommendations
+```
+
+**Application layer** — Next.js App Router. Server Components and Server
+Actions do all privileged work (Firestore Admin SDK, encryption, external
+API calls); the browser only ever talks to Firebase Auth directly and to
+this app's own signed endpoints. Firestore Security Rules default-deny and
+are opened collection by collection, so the client's own reach is narrow
+even before the server-side checks run.
+
+**Orchestration** — n8n runs the schedule (daily research, weekly reports,
+publishing ticks) and calls this app's webhooks, each authenticated by an
+HMAC signature over the raw request body rather than a bearer token. The
+app never hands n8n a database or storage credential — it only ever
+receives a signed trigger and does the privileged work itself.
+
+**Provider abstraction** — every external integration (AI, social
+publishing, analytics, Slack) sits behind a small interface with a real
+adapter and a deterministic mock adapter, selected by an environment
+variable. Development, tests and CI run entirely on mocks; a real account
+is never touched until a provider is switched on deliberately.
+
+## Tech Stack
+
+| Layer | Technology |
 |---|---|
-| −1 — Platform access spike | Complete ([notes](docs/module--1-platform-access-spike.md)) |
-| 00 — Foundation | Complete ([plan](docs/module-00-plan.md)) |
-| 01 — Authentication & Access Control | Complete ([plan](docs/module-01-plan.md)) |
-| 02 — Company & Brand Intelligence | Complete ([plan](docs/module-02-plan.md)) |
-| 03 — News Source Management | Complete ([plan](docs/module-03-plan.md)) |
-| 04 — AI News Research & Ranking | Complete ([plan](docs/module-04-plan.md)) |
-| 05 — Slack News Notification | Complete ([plan](docs/module-05-plan.md)) |
-| 06 — Human News Selection | Complete ([plan](docs/module-06-plan.md)) |
-| 07 — AI Content Generation | Complete ([plan](docs/module-07-plan.md)) |
-| 08 — Static Post Generator | Complete ([plan](docs/module-08-plan.md)) |
-| 09 — Content Preview & Approval | Complete ([plan](docs/module-09-plan.md)) |
-| 10 — Social Media Calendar | Complete ([plan](docs/module-10-plan.md)) |
-| 11 — Scheduling Engine | Complete ([plan](docs/module-11-plan.md)) |
-| 12 — Facebook Integration | Complete ([plan](docs/module-12-plan.md)) |
-| 13 — Instagram Integration | Complete ([plan](docs/module-13-plan.md)) |
-| 14 — LinkedIn Integration | Complete ([plan](docs/module-14-plan.md)) |
-| 16 — Publishing Engine | Complete ([plan](docs/module-16-plan.md)) |
-| 17 — Analytics Collection | Complete ([plan](docs/module-17-plan.md)) |
-| 18 — Weekly Performance Analysis | Complete ([plan](docs/module-18-plan.md)) |
-| 19 — AI Strategy Optimization | Complete ([plan](docs/module-19-plan.md)) |
-| 20 — Automation Control Center | Complete ([plan](docs/module-20-plan.md)) |
-| 21 — Audit Logs & Error Recovery | Complete ([plan](docs/module-21-plan.md)) |
-| 22 — Security & Production Hardening | Complete ([plan](docs/module-22-plan.md)) |
+| Framework | Next.js 16 (App Router, Server Components & Actions) |
+| Language | TypeScript (strict mode) |
+| Styling | Tailwind CSS v4, shadcn/ui |
+| Database & Auth | Firebase — Firestore + Authentication |
+| Media storage | Cloudinary (signed server-side uploads) |
+| Image rendering | Satori + resvg (SVG → PNG, no headless browser) |
+| AI | Groq (behind a provider abstraction — swappable) |
+| Automation | n8n (signed webhook orchestration) |
+| Validation | Zod, end to end |
+| Testing | Vitest (unit/integration), Playwright (e2e), Firebase Emulator Suite (security rules) |
+| Notifications | Slack Web API |
 
-The app now has login, roles, protected routes, the central brand profile,
-news discovery from configurable RSS sources, AI ranking that produces a daily
-shortlist, a Slack notification that posts that shortlist to the team, and the
-full news screen where a human selects exactly three stories for the day. Those
-three are turned into a core message and a Facebook, Instagram and LinkedIn
-version each, with a branded static card rendered for every one of them. The
-content screen is now a review queue: a reviewer previews each platform
-version, edits its copy, regenerates it, and approves or rejects it **per
-platform**, with an "approve all" convenience that applies the same
-per-platform approval to each eligible version. Status transitions are
-enforced on the server; the story-level status is derived for display only and
-never stored. A read-only calendar shows what is scheduled by month, week or
-day in the company's configured timezone, filtered by platform and status,
-alongside the approved versions still waiting for a slot. Approved versions can
-now be given a slot: the time is picked in the company's timezone and stored as
-UTC, only approved work can be scheduled, and two posts cannot land on one
-account within fifteen minutes. An n8n tick reports what is due and verifies
-each one's approval record, and a second signed tick publishes it.
+## Getting Started
 
-The Facebook Page and Instagram adapters are built against Meta's Graph API
-v26.0 and the publishing adapter contract (Module 16's, stubbed first as §20
-requires). Instagram publishes in two steps — a media container, then a
-publish once Meta reports it finished — and accepts JPEG only, which is why
-Module 08 already stores that card as JPEG. OAuth tokens are stored encrypted
-with AES-256-GCM and are never shown, logged or readable by any client.
-`FACEBOOK_PROVIDER` and `INSTAGRAM_PROVIDER` each default to `mock` and are
-separate switches, so nothing reaches a real account until one is set
-deliberately, and the Social Accounts screen says REAL, MOCK or which module
-still owes the integration rather than showing everything as "Not connected".
+### Prerequisites
 
-The Instagram account is reached **through** the Page it is linked to, so there
-is no second Meta app — but it is a separate connection, and disconnecting one
-leaves the other publishing. The account must be a Professional (Business or
-Creator) account; a personal account has no API access at all.
+- Node.js 20.9+ and npm
+- A Firebase project (Firestore + Authentication enabled)
+- A Cloudinary account
+- The Firebase CLI, for running the security rules and e2e test suites
 
-LinkedIn publishes to a **member profile**, not a company Page: posting as a
-Page needs the Community Management API, which is gated behind two-tier App
-Review, a registered company and a verified Page (§66 — that is a documented
-limitation, not a missing feature). Its post analytics are unavailable too,
-because `r_member_social` is a closed permission LinkedIn is not granting.
-Unlike Meta, LinkedIn
-will not fetch an image from a URL — the card is downloaded and re-uploaded as
-bytes — and its token **expires after 60 days with no refresh token**. That
-expiry is read back from LinkedIn rather than assumed, and a signed daily tick
-at `/api/webhooks/social/tokens` warns on Slack inside the last seven days so a
-human can reconnect in time (§19).
-
-The publishing engine joins those three adapters to the calendar. Every
-pre-publish check — the approval record, the scheduled state, the previous
-attempt and the platform's own post id — runs inside one transaction, and the
-post id is checked first, so a retry can tell "already published" from "never
-published" instead of creating a second post. A rate limit or a network fault
-leaves the post scheduled for the next tick; a rejected token or a refused
-image fails it outright with the reason stored. Terminal failures are
-announced on Slack, because nothing retries them. Whether a publish was real
-or simulated is recorded **on the post**, so a post published in mock mode
-stays labelled that way even after a provider is switched on.
-
-A signed daily-tick-style webhook (`08_analytics_sync`) reads back what
-happened to every published post. Facebook reports real `likes`, `comments`
-and `shares` (their sum as `engagement`); reach and impression metrics are
-stored as `UNAVAILABLE` because Meta has been deprecating them and no
-confirmed replacement metric name exists in primary documentation. Instagram
-reports real `reach`, `likes`, `comments`, `shares` and `engagement`
-(`total_interactions`), with `engagementRate` computed only when both halves
-are real numbers; `impressions` is unavailable because Meta deprecated it for
-feed media. LinkedIn stays unavailable, unchanged from Module 14. A
-mock-published post gets deterministic simulated analytics, labelled `MOCK`,
-and never touches a real credential or a real API call — §22's rule holds
-throughout: a number is either what the platform actually returned or the
-literal word `UNAVAILABLE`, never invented. Module 17 stores this in its own
-`analytics` collection with a small read model.
-
-Every week, a signed tick (`09_weekly_performance_analysis`) computes the
-trailing 7 days' performance: best and weakest posts, and platform, topic and
-format comparisons, all averaged only over posts Module 17 could actually
-measure — a post with no usable analytics is excluded from every average
-rather than counted as zero. One AI call then writes a short narrative and up
-to six recommended changes, grounded only in those already-computed numbers,
-and is skipped outright rather than invented when a week has nothing
-measured to say. The Analytics screen (`/analytics`) reads the saved report:
-overall performance, platform/topic/format comparison, top and weak posts,
-and the engagement trend across recent weeks. Module 18 stops at reporting
-what happened — the strategy recommendations that act on it, with versioning
-and evidence citations, are Module 19.
-
-A second signed tick (`10_strategy_optimization`) reads the last four weekly
-reports and computes topic, platform and format weighting as each one's real
-share of measured engagement over that window — never an AI-invented number.
-One AI call then writes up to eight recommendations (§24: topic weighting,
-platform weighting, posting frequency, content mix, headline style, CTA
-style, format distribution, timing), each grounded in those weights with a
-stated reason, skipped outright when nothing was measured. Every run adds a
-new version rather than overwriting the last one, so "current strategy" is
-just the highest version and nothing is ever silently lost — §24 permits the
-strategy to change automatically precisely because that history stays
-intact. **The strategy can change on its own; a post still always needs a
-human's approval before it publishes** — nothing here writes a platform
-post, and nothing here writes to the human-owned brand profile (§11) or
-Module 06's fixed three-stories-a-day rule (§8) either, however a
-recommendation might read. The Strategy screen (`/strategy`) shows the
-current version, its recommendations, and version history, plus a
-manual "Regenerate now" for ADMIN.
-
-The Automation Control Center (`/automation`) shows every one of §41's eight
-automations — Daily News Discovery, Slack Notification, Content Generation,
-Scheduling, Publishing, Analytics, Weekly Analysis, Strategy Optimization —
-its most recent run, status, last error, and a switch to turn it off. Six of
-those eight recorded nothing before this module: every webhook now records
-one run per attempt (never throwing if that bookkeeping itself fails, so a
-successful run is never reported as failed because its own logging broke),
-and every route checks the switch immediately after verifying its signature.
-n8n still fires each trigger on schedule — this app cannot reach n8n's own
-cron configuration, so turning an automation "off" here means the endpoint
-declines to run its pipeline when asked, not that n8n stops asking, and
-"next run" is shown honestly as "configured in n8n" rather than a guessed
-countdown.
-
-The audit trail (`/automation/audit`) has been recorded since Module 01 —
-every login, approval, publish, sync and settings change — and is now
-readable for the first time, read-only and server-side only, same posture
-as every other operational collection. The Automation screen also gained
-each workflow's recent run history and a "Run now" button, which is this
-system's actual retry mechanism: calling the same function its own webhook
-calls, never a second implementation of it. A failed automation now alerts
-Slack automatically — centralized in one place so all nine workflows get it
-uniformly, rather than only Publishing having its own. What this module
-deliberately did **not** add: a way to retry a `FAILED` post in place.
-§17's transition table fixes `FAILED` with no way out, and
-`scheduleRefusal` already explains why — *"scheduling it again would hide
-why"* — so recovering a failed post means regenerating a fresh version and
-approving that, which already worked before this module and was left alone.
-
-Module 22 audited the system end to end rather than adding a screen — nine
-checks (Firestore rules, Admin SDK handling, authorization, secrets, API
-security, error exposure, logging, dependencies, production configuration),
-each verified directly against the code and, for anything a browser
-actually runs, against a live app rather than assumed from reading it.
-`npm audit` found six moderate advisories, all one root cause — an old
-`uuid` several layers inside `firebase-admin`'s own dependency tree, with no
-non-breaking upstream fix yet — resolved with a targeted `overrides` entry
-rather than the breaking downgrade `npm audit fix --force` suggested;
-`npm audit` now reports zero. The app had no security headers and no
-`next/image` allowance for Cloudinary at all — the latter a live bug
-waiting for the first real logo (`brand-form.tsx` already renders one
-through `next/image`), not a hypothetical. Both are fixed.
-
-Content-Security-Policy needed more than inspection. A static policy broke
-every page outright — Next's own inline hydration scripts read as CSP
-violations — caught by a headless run against a real production build, not
-assumed; the fix is Next's documented nonce pattern, generated fresh per
-request in `proxy.ts` rather than as a static header, which a login test
-then proved actually reaches `identitytoolkit.googleapis.com` and back. A
-second break surfaced only by running the full 86-test credentialed e2e
-suite: the emulator-backed dev and test environment talks to
-`127.0.0.1:9099`, which the production-scoped policy didn't allow, failing
-every test behind a sign-in. `connect-src` now widens for that one host
-only when `NEXT_PUBLIC_FIREBASE_EMULATOR_HOST` is set — the same flag the
-Firebase client already reads — so a deployed environment is never affected
-by it. All 86 e2e-auth tests pass against the fixed policy.
-
-**AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
-nothing reaches a paid or rate-limited service until it is set deliberately,
-and `SLACK_PROVIDER` defaults to `mock` so no message reaches a real
-workspace. Every simulated result is labelled as such in the UI and stored as
-`MOCK` (§21).
-
-## Stack
-
-Next.js (App Router) · TypeScript (strict) · Tailwind CSS v4 · shadcn/ui ·
-Firebase (Firestore + Auth, Spark plan) · Cloudinary for media ·
-Groq for AI (free plan, behind a provider abstraction) ·
-Vitest · Playwright · Firebase Emulator Suite. Deployment target is the
-Render free tier (spec §28).
-
-## Setup
-
-Requires Node 24+, npm 11+, and the Firebase CLI for the emulator tests.
+### Installation
 
 ```bash
 npm install
 cp .env.example .env.local   # then fill in real values
 ```
 
-`.env.local` is git-ignored and must never be committed. `.env.example`
-carries variable names and shapes only. Two groups matter (§57):
-`NEXT_PUBLIC_*` variables reach the browser; everything else is server-only
-and enforced as such by the `server-only` package.
+`.env.local` is git-ignored and must never be committed. Two groups of
+variables matter: `NEXT_PUBLIC_*` values are safe to expose in the browser
+bundle; everything else is server-only, enforced at the type level by the
+`server-only` package. `FIREBASE_ADMIN_PRIVATE_KEY` is pasted with literal
+`\n` sequences — the env schema unescapes them. `TOKEN_ENCRYPTION_KEY` must
+be 64 hex characters (32 bytes): generate one with `openssl rand -hex 32`.
 
-`FIREBASE_ADMIN_PRIVATE_KEY` is pasted with literal `\n` sequences; the env
-schema unescapes them. `TOKEN_ENCRYPTION_KEY` must be 64 hex characters
-(32 bytes) — generate one with `openssl rand -hex 32`.
+### Firebase project setup
 
-### Firebase project prerequisites
-
-Before `npm run verify:services` can pass, the Firestore database must be
-created in the Firebase console for the project named in
-`FIREBASE_ADMIN_PROJECT_ID`. Creating the project alone is not enough — the
-Firestore API stays disabled until a database exists.
-
-**Then check the database's ID**, because it is not always what it looks
-like:
+The Firestore database has to exist before `npm run verify:services` can
+pass — creating the project alone isn't enough. Then confirm its actual ID:
 
 ```bash
 firebase firestore:databases:list --project <project-id>
 ```
 
-A project's first database is normally called `(default)` — parentheses
-included, they are part of the literal name. Multi-database Firestore also
-allows plain IDs, so a database can end up called `default` without them,
-and that is a *different* database. Pointing at the wrong one fails as a
-bare `5 NOT_FOUND` that names neither the database it tried nor the one that
-exists.
+A project's first database is usually `(default)` (parentheses included —
+that's the literal name). If yours is anything else, set both
+`FIREBASE_DATABASE_ID` and `NEXT_PUBLIC_FIREBASE_DATABASE_ID` to match it,
+and update `firebase.json`'s `database` field too, or rules will deploy to a
+database that doesn't exist.
 
-If the ID is anything other than `(default)`, set both halves — they must
-match, and `firebase.json`'s `database` field must match too or rules deploy
-to a database that is not there:
-
-```dotenv
-FIREBASE_DATABASE_ID=default
-NEXT_PUBLIC_FIREBASE_DATABASE_ID=default
-```
-
-## Commands
+Enable Email/Password sign-in under Authentication → Get started, then
+create the first administrator account:
 
 ```bash
-npm run dev              # development server
-npm run verify           # typecheck + lint + format check + unit tests + build
-npm run test             # Vitest unit tests
-npm run test:rules       # Firestore rules tests against the emulator
-npm run test:e2e         # Playwright tests that need no credentials
-npm run test:e2e:auth    # full credentialed suite against the emulators (port 3100)
-npm run verify:services  # live credential check against Firestore + Cloudinary
-npm run emulators        # Firestore + Auth emulators
-npm run provision:user   # create or update an account (see below)
-npm run seed:sources     # add the verified news feeds (optional)
+npm run provision:user -- --email you@company.com --role ADMIN --name "Your Name"
 ```
 
-`npm run verify` is the offline quality gate (§59) — it needs no credentials
-and no network. `verify:services` is the separate, deliberately manual check
-that real credentials work.
+There is no signup route by design — every account is provisioned this way.
 
-## Accounts
-
-There is no signup route and there must never be one (§26). Accounts are
-created by an administrator with the Admin SDK:
+### Run it
 
 ```bash
-npm run provision:user -- --email someone@company.com --role ADMIN --name "Full Name"
+npm run dev
 ```
 
-Roles are `ADMIN`, `MANAGER` and `SOCIAL_MANAGER` (§27). The role lives in a
-Firebase Auth custom claim, which is what Security Rules and the server
-trust; the copy on `profiles/{uid}` is for display only. Omitting
-`--password` generates a temporary one and prints it once — the user should
-sign in and reset it immediately.
+## Available Scripts
 
-The same script disables an account, revoking its sessions at the same time:
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` / `npm run start` | Production build and start |
+| `npm run verify` | The full offline quality gate — typecheck, lint, format check, unit tests, build |
+| `npm run test` | Unit and integration tests (Vitest) |
+| `npm run test:rules` | Firestore Security Rules tests against the emulator |
+| `npm run test:e2e` | Playwright tests that need no credentials |
+| `npm run test:e2e:auth` | Full credentialed e2e suite against the Firebase emulators |
+| `npm run verify:services` | One-off live check that Firestore and Cloudinary credentials actually work |
+| `npm run emulators` | Start the Firestore + Auth emulators |
+| `npm run provision:user` | Create, update, or disable an account |
+| `npm run seed:sources` | Seed a starter set of verified news feeds |
 
-```bash
-npm run provision:user -- --email someone@company.com --disable
-```
+## Testing
 
-The **first** ADMIN has to be created this way, before anything is reachable.
+- **510 unit/integration tests** (Vitest) covering business logic, validation, and every provider adapter through its mock
+- **37 Firestore Security Rules tests** against the Firebase Emulator Suite — both allow and deny cases
+- **86 credentialed end-to-end tests** (Playwright) against real Firebase Auth/Firestore emulators, covering every role and every screen
+- No test ever calls a live external API — every provider (AI, social platforms, Slack) is exercised through its deterministic mock
 
-Firebase Authentication must be enabled in the console first (Authentication
-→ Get started → Email/Password). Until it is, provisioning fails with
-`auth/configuration-not-found`, which does not say what is missing.
+## Documentation
 
-## AI provider
+Every module has a detailed implementation writeup — what was built, what
+was verified against official documentation before being trusted, and why —
+in [`docs/`](docs). The full product specification that governs every
+decision in this repository lives in
+[`AI-Social-Media-Automation-System.md`](AI-Social-Media-Automation-System.md).
 
-§30 forbids coupling to one provider, so everything goes through a small
-`AIProvider` interface with two adapters: Groq and a deterministic mock.
+## Notable Engineering Decisions
 
-Groq was chosen against §29's free-tier-first policy: its free plan needs no
-card and supports JSON-schema constrained decoding. Gemini's free tier was
-rejected because its own pricing page states free-tier content is used to
-improve Google's products, and the brand profile feeds these prompts.
+- **Provider abstraction everywhere.** AI, social publishing, and analytics are never called directly — always through an interface with a real adapter and a mock, so the whole system runs deterministically offline and a real account is never touched by accident.
+- **Two independent authorization layers.** Edge middleware redirects on a missing session cookie for UX only; every actual authorization check runs server-side against the Admin SDK, because middleware cannot verify a session cookie's authenticity.
+- **Idempotent publishing.** Approval state, scheduled state, previous attempts and the platform's own returned post ID are all re-checked inside one transaction immediately before publishing, so a retry can never create a duplicate post.
+- **Honest data, always.** A simulated action is labelled `MOCK` in the data itself, not just the UI. A metric a platform doesn't return is `UNAVAILABLE`, never zero. An AI recommendation is skipped outright rather than invented when there's nothing to base it on.
 
-The free plan allows 8,000 tokens a minute, which is the binding constraint —
-ranking batches, truncates and paces itself accordingly.
+---
 
-```dotenv
-AI_PROVIDER=groq
-GROQ_API_KEY=...      # console.groq.com
-```
-
-Leave `AI_PROVIDER` unset (or `mock`) to simulate. A missing key with
-`AI_PROVIDER=groq` fails loudly rather than falling back to simulated scores.
-
-## Slack
-
-The shortlist is posted with `chat.postMessage` using a bot token, rather than
-an incoming webhook: a webhook URL is bound to one channel and its messages can
-never be edited, and later modules need both (§9's publishing status, §41's
-automation alerts).
-
-```dotenv
-SLACK_PROVIDER=slack
-SLACK_BOT_TOKEN=xoxb-...     # api.slack.com/apps -> bot scope chat:write
-SLACK_NEWS_CHANNEL_ID=C...   # the channel ID, not the #name
-APP_BASE_URL=https://...     # only used for the links inside the message
-```
-
-Invite the app to the channel (`/invite @your-app`) or Slack answers
-`not_in_channel`. Leave `SLACK_PROVIDER` unset (or `mock`) to simulate: the
-message is written to the log instead of the workspace, and both the screen
-and the stored record say so. A missing token or channel with
-`SLACK_PROVIDER=slack` fails loudly rather than falling back to simulated
-delivery.
-
-**Slack's interactive buttons are UNAVAILABLE, not missing** (§66). They
-require a public HTTPS request URL answered within three seconds, which this
-system does not have until it is deployed. The message therefore carries link
-buttons into the app, where §46's selection of exactly three happens.
-
-## Static card rendering
-
-Cards are rendered with Satori (JSX and a CSS subset to SVG) and resvg (SVG to
-PNG), as §15 requires. Headless Chromium is not used.
-
-Fonts ship with the repository in `assets/fonts` — Fontsource's latin 400 and
-700 WOFF builds of the five families the brand form offers, 252 KB in total,
-all SIL OFL 1.1 with the licence bundled alongside. They are not fetched at
-render time, and they are not the variable builds Google Fonts now publishes:
-Satori's font parser throws on those.
-
-`satori`, `harfbuzzjs` and `@resvg/resvg-js` are listed in
-`serverExternalPackages`. The native addon cannot be bundled at all, and a
-bundled Satori resolves HarfBuzz's WebAssembly file against the wrong path and
-fails only in a production build.
-
-**Instagram's asset is stored as JPEG.** Its publishing API accepts no other
-format. The conversion is a single eager one at upload; §28's credit pool is
-shared between storage, bandwidth and transformations, so nothing transforms on
-delivery.
-
-## Notes on two deliberate choices
-
-**Firestore rules start closed.** `firestore.rules` denies every read and
-write. Each module opens exactly what it needs, and deny cases are tested,
-not just allow cases (§58).
-
-**Two layers guard every route, and only one of them counts.** `proxy.ts`
-redirects when the session cookie is missing, but it runs on the Edge
-runtime where the Admin SDK cannot run — it cannot tell a valid cookie from
-a forged one. The real check is `requireUser()` in the authenticated layout
-and in server routes. §33 is explicit that the Admin SDK bypasses Security
-Rules, so server code authorizes itself.
-
-**`/api/health` does nothing.** It is the keep-warm target for the n8n cron
-that stops the Render free instance from spinning down (§28). It touches no
-dependency and reveals no configuration, because it is unauthenticated. A
-readiness check that probes dependencies must be a separate, authenticated
-endpoint.
-
-## Contributing
-
-Conventional Commits (§62). Work happens on `feature/module-XX-*` branches
-and merges into `develop` (§60). Never commit to `main` directly.
+*This is a private/portfolio project — not open for public contribution.*
