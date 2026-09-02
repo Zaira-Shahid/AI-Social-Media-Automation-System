@@ -11,14 +11,32 @@ import { newsItemSchema, type NewsItem, type NewsSource } from "@/lib/news/schem
 
 /** The shape `rss-parser` produces, narrowed to what normalization uses. */
 export interface FeedEntry {
-  title?: string;
-  link?: string;
-  isoDate?: string;
-  pubDate?: string;
-  contentSnippet?: string;
-  content?: string;
-  summary?: string;
-  categories?: string[];
+  /*
+   * Every text field is `unknown` for the reason `categories` is: `rss-parser`
+   * hands back whatever the feed contained, and an element carrying attributes
+   * parses to an object rather than a string. Declaring these `string` did not
+   * make them strings — it only moved the discovery to runtime, where one
+   * `.trim()` or `.replace()` threw and took every item in that feed with it.
+   *
+   * Nothing is trusted to be a string until it has been checked. `toPlainText`
+   * does that checking for the text fields.
+   */
+  title?: unknown;
+  link?: unknown;
+  isoDate?: unknown;
+  pubDate?: unknown;
+  contentSnippet?: unknown;
+  content?: unknown;
+  summary?: unknown;
+  /*
+   * `unknown[]`, not `string[]`, because that is what `rss-parser` actually
+   * hands back. A bare `<category>Tech</category>` parses to a string, but a
+   * category carrying attributes — `<category domain="...">Tech</category>`
+   * in RSS, `<category term="Tech"/>` in Atom — parses to an object. Typing
+   * this as `string[]` did not make it so; it only moved the discovery to
+   * runtime, where `.slice` on an object took the whole feed down.
+   */
+  categories?: unknown[];
   enclosure?: { url?: string; type?: string };
   ["media:content"]?: { $?: { url?: string } };
   ["media:thumbnail"]?: { $?: { url?: string } };
@@ -31,8 +49,11 @@ export interface FeedEntry {
  * What is stored should be text, because everything downstream — the AI
  * prompt, the Slack message, the card — wants text.
  */
-export function toPlainText(value: string | undefined): string {
-  if (!value) return "";
+export function toPlainText(value: unknown): string {
+  // A non-string is not an error worth failing a whole feed over — it is a
+  // field this entry did not usefully supply, and the caller already treats
+  // an empty title as "skip this entry".
+  if (typeof value !== "string" || !value) return "";
 
   return value
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -113,8 +134,12 @@ export function duplicateGroupKey(title: string): string {
 }
 
 function firstImage(entry: FeedEntry): string {
+  const enclosureType = entry.enclosure?.type;
+
   const candidates = [
-    entry.enclosure?.type?.startsWith("image/") ? entry.enclosure.url : undefined,
+    typeof enclosureType === "string" && enclosureType.startsWith("image/")
+      ? entry.enclosure?.url
+      : undefined,
     entry["media:content"]?.$?.url,
     entry["media:thumbnail"]?.$?.url,
   ];
@@ -136,7 +161,7 @@ function firstImage(entry: FeedEntry): string {
  */
 function publishedAt(entry: FeedEntry, retrievedAt: string): string {
   for (const candidate of [entry.isoDate, entry.pubDate]) {
-    if (!candidate) continue;
+    if (typeof candidate !== "string" || !candidate) continue;
 
     const parsed = new Date(candidate);
     if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
@@ -148,6 +173,42 @@ function publishedAt(entry: FeedEntry, retrievedAt: string): string {
 export interface NormalizedEntry {
   id: string;
   item: NewsItem;
+}
+
+/**
+ * The first usable category a feed offers, or null.
+ *
+ * Feeds disagree about what a category *is*. `rss-parser` passes each one
+ * through as it found it, so an entry's `categories` can hold plain strings,
+ * RSS objects carrying the text in `_` alongside a `domain` attribute, or
+ * Atom objects where the text lives in the `term` attribute and there is no
+ * body at all. All three are legitimate feeds.
+ *
+ * Anything that yields no text is skipped rather than stringified: `"[object
+ * Object]"` stored as a category would be worse than falling back to the
+ * source's own, which is what the caller does with a null.
+ */
+export function firstCategory(entry: FeedEntry): string | null {
+  for (const raw of entry.categories ?? []) {
+    if (typeof raw === "string") {
+      const text = raw.trim();
+
+      if (text) return text;
+
+      continue;
+    }
+
+    if (typeof raw !== "object" || raw === null) continue;
+
+    const record = raw as { _?: unknown; $?: { term?: unknown; label?: unknown } };
+    const candidate = [record._, record.$?.term, record.$?.label].find(
+      (value) => typeof value === "string" && value.trim().length > 0,
+    );
+
+    if (typeof candidate === "string") return candidate.trim();
+  }
+
+  return null;
 }
 
 /**
@@ -163,7 +224,9 @@ export function normalizeEntry(
   retrievedAt: string,
 ): NormalizedEntry | null {
   const title = toPlainText(entry.title);
-  const link = entry.link?.trim();
+  // Not `entry.link?.trim()`: a link that is not a string throws exactly the
+  // way a category did, and an entry without a usable URL is skipped anyway.
+  const link = typeof entry.link === "string" ? entry.link.trim() : undefined;
 
   if (!title || !link) return null;
 
@@ -178,7 +241,7 @@ export function normalizeEntry(
     publishedAt: publishedAt(entry, retrievedAt),
     retrievedAt,
     // The feed's own category wins when it has one; otherwise the source's.
-    category: (entry.categories?.[0] ?? source.category ?? "").slice(0, 60),
+    category: (firstCategory(entry) ?? source.category ?? "").slice(0, 60),
     imageUrl: firstImage(entry),
     duplicateGroup: duplicateGroupKey(title),
     status: "DISCOVERED" as const,

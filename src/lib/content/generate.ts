@@ -392,6 +392,15 @@ export async function runContentGeneration(actor: string): Promise<GenerationOut
           // Scheduling is Module 11. Null is the honest value, and the
           // calendar reads it as "approved work with no slot yet".
           scheduledAt: null,
+          // Nothing has been published, and the record says so outright
+          // rather than relying on the schema's defaults to fill it in
+          // later (§67). Module 16 writes all of these.
+          providerPostId: null,
+          permalink: null,
+          publishedAt: null,
+          publishMode: null,
+          publishAttempts: 0,
+          publishStartedAt: null,
         });
 
         await recordContentVersion({

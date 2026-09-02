@@ -60,6 +60,12 @@ function post(overrides: Partial<StoredPlatformPost> = {}): StoredPlatformPost {
     approvedAt: "2026-09-01T05:00:00.000Z",
     rejectionNote: null,
     scheduledAt: null,
+    providerPostId: null,
+    permalink: null,
+    publishedAt: null,
+    publishMode: null,
+    publishAttempts: 0,
+    publishStartedAt: null,
     ...overrides,
   };
 }

@@ -29,6 +29,8 @@ run what exists today.
 | 12 — Facebook Integration | Complete ([plan](docs/module-12-plan.md)) |
 | 13 — Instagram Integration | Complete ([plan](docs/module-13-plan.md)) |
 | 14 — LinkedIn Integration | Complete ([plan](docs/module-14-plan.md)) |
+| 16 — Publishing Engine | Complete ([plan](docs/module-16-plan.md)) |
+| 17 — Analytics Collection | Complete ([plan](docs/module-17-plan.md)) |
 
 The app now has login, roles, protected routes, the central brand profile,
 news discovery from configurable RSS sources, AI ranking that produces a daily
@@ -47,8 +49,7 @@ alongside the approved versions still waiting for a slot. Approved versions can
 now be given a slot: the time is picked in the company's timezone and stored as
 UTC, only approved work can be scheduled, and two posts cannot land on one
 account within fifteen minutes. An n8n tick reports what is due and verifies
-each one's approval record. Nothing publishes yet — the publishing engine is
-Module 16, and the tick says so rather than pretending.
+each one's approval record, and a second signed tick publishes it.
 
 The Facebook Page and Instagram adapters are built against Meta's Graph API
 v26.0 and the publishing adapter contract (Module 16's, stubbed first as §20
@@ -70,13 +71,40 @@ LinkedIn publishes to a **member profile**, not a company Page: posting as a
 Page needs the Community Management API, which is gated behind two-tier App
 Review, a registered company and a verified Page (§66 — that is a documented
 limitation, not a missing feature). Its post analytics are unavailable too,
-because `r_member_social` is a closed permission LinkedIn is not granting, so
-§22's realistic coverage is Facebook and Instagram only. Unlike Meta, LinkedIn
+because `r_member_social` is a closed permission LinkedIn is not granting.
+Unlike Meta, LinkedIn
 will not fetch an image from a URL — the card is downloaded and re-uploaded as
 bytes — and its token **expires after 60 days with no refresh token**. That
 expiry is read back from LinkedIn rather than assumed, and a signed daily tick
 at `/api/webhooks/social/tokens` warns on Slack inside the last seven days so a
 human can reconnect in time (§19).
+
+The publishing engine joins those three adapters to the calendar. Every
+pre-publish check — the approval record, the scheduled state, the previous
+attempt and the platform's own post id — runs inside one transaction, and the
+post id is checked first, so a retry can tell "already published" from "never
+published" instead of creating a second post. A rate limit or a network fault
+leaves the post scheduled for the next tick; a rejected token or a refused
+image fails it outright with the reason stored. Terminal failures are
+announced on Slack, because nothing retries them. Whether a publish was real
+or simulated is recorded **on the post**, so a post published in mock mode
+stays labelled that way even after a provider is switched on.
+
+A signed daily-tick-style webhook (`08_analytics_sync`) reads back what
+happened to every published post. Facebook reports real `likes`, `comments`
+and `shares` (their sum as `engagement`); reach and impression metrics are
+stored as `UNAVAILABLE` because Meta has been deprecating them and no
+confirmed replacement metric name exists in primary documentation. Instagram
+reports real `reach`, `likes`, `comments`, `shares` and `engagement`
+(`total_interactions`), with `engagementRate` computed only when both halves
+are real numbers; `impressions` is unavailable because Meta deprecated it for
+feed media. LinkedIn stays unavailable, unchanged from Module 14. A
+mock-published post gets deterministic simulated analytics, labelled `MOCK`,
+and never touches a real credential or a real API call — §22's rule holds
+throughout: a number is either what the platform actually returned or the
+literal word `UNAVAILABLE`, never invented. Module 17 stores this in its own
+`analytics` collection with a small read model; the dashboard, trends and
+weekly comparisons that read it are Module 18.
 
 **AI calls and Slack messages are simulated by default.** `AI_PROVIDER` defaults to `mock`, so
 nothing reaches a paid or rate-limited service until it is set deliberately,

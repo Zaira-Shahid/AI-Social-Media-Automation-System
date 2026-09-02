@@ -11,8 +11,11 @@ import { SIGNATURE_HEADER, TIMESTAMP_HEADER, verifySignature } from "@/lib/webho
  * §49's workflow is: scheduler → verify approval → verify social account →
  * publish. This endpoint is the first two steps. It answers what is due and
  * confirms each one carries the approval record §18 requires, and it publishes
- * nothing — there is no publishing engine until Module 16, and an endpoint
- * that reported posts as published would be inventing a capability (§67).
+ * nothing.
+ *
+ * That is still true now that Module 16 exists: publishing lives at
+ * `content/publish`, and this endpoint stays side-effect free so an operator
+ * can ask what is due without publishing it.
  *
  * Signed like every other n8n trigger here.
  */
@@ -41,8 +44,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       /*
        * Named so no downstream step can mistake this for a publish result.
-       * `published` is deliberately absent rather than zero: absent is a
-       * capability that does not exist yet, zero would be a claim that it ran.
+       * `published` is deliberately absent rather than zero, which would be a
+       * claim that publishing ran here. It runs at `content/publish`.
        */
       due: outcome.due,
       posts: outcome.posts.map((post) => ({
@@ -53,7 +56,8 @@ export async function POST(request: Request) {
       })),
       // §18: anything due without an approval record is reported, never sent on.
       unapproved: outcome.unapproved,
-      detail: "Publishing is Module 16. These posts are due and approved; none were published.",
+      detail:
+        "These posts are due and approved; none were published. Publishing runs at /api/webhooks/content/publish.",
     });
   } catch (error) {
     logger.error("Scheduler webhook failed", {
