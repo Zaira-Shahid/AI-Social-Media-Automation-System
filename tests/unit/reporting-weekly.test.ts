@@ -203,8 +203,13 @@ describe("runWeeklyAnalysis", () => {
     expect(saved.bestPlatform).toBe("INSTAGRAM");
     expect(saved.weakestPlatform).toBe("FACEBOOK");
     expect(saved.bestTopic).toBe("Cloud");
-    expect((saved.bestPosts as unknown[])[0]).toMatchObject({ platform: "INSTAGRAM", engagement: 90 });
-    expect(saved.narrative).toMatchObject({ engagementPatterns: "Instagram outperformed Facebook this week." });
+    expect((saved.bestPosts as unknown[])[0]).toMatchObject({
+      platform: "INSTAGRAM",
+      engagement: 90,
+    });
+    expect(saved.narrative).toMatchObject({
+      engagementPatterns: "Instagram outperformed Facebook this week.",
+    });
 
     expect(recordAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: "WEEKLY_REPORT_GENERATED", status: "SUCCESS" }),

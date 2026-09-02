@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { ROLES, can, groupedPermissionsFor, permissionsFor, roleLabel, roleSchema } from "@/lib/auth/roles";
+import {
+  ROLES,
+  can,
+  groupedPermissionsFor,
+  permissionsFor,
+  roleLabel,
+  roleSchema,
+} from "@/lib/auth/roles";
 
 /**
  * Permission matrix tests (spec §27, §58).
@@ -90,7 +97,9 @@ describe("roles", () => {
     it("groups every permission a role holds under its own category prefix", () => {
       const groups = groupedPermissionsFor("SOCIAL_MANAGER");
 
-      expect(groups).toEqual([{ category: "Content", permissions: permissionsFor("SOCIAL_MANAGER") }]);
+      expect(groups).toEqual([
+        { category: "Content", permissions: permissionsFor("SOCIAL_MANAGER") },
+      ]);
     });
 
     it("never drops or duplicates a permission across groups", () => {

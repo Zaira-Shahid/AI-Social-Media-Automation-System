@@ -65,7 +65,11 @@ const PUBLIC_PATHS = ["/login", "/forbidden"];
  */
 function contentSecurityPolicy(nonce: string): string {
   const emulatorHost = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_HOST;
-  const connectSrc = ["'self'", "https://identitytoolkit.googleapis.com", "https://securetoken.googleapis.com"];
+  const connectSrc = [
+    "'self'",
+    "https://identitytoolkit.googleapis.com",
+    "https://securetoken.googleapis.com",
+  ];
 
   if (emulatorHost) {
     connectSrc.push(`http://${emulatorHost}:9099`, `http://${emulatorHost}:8080`);

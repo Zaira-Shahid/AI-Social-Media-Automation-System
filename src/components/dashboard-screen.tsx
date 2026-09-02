@@ -68,7 +68,11 @@ function AutomationCard({ automations }: { automations: AutomationStatusView[] }
       icon={failing > 0 ? AlertTriangle : Workflow}
       label="Automation health"
       value={`${enabled}/${automations.length} enabled`}
-      detail={failing > 0 ? `${failing} last failed a run — see Automation.` : "No automation's last run failed."}
+      detail={
+        failing > 0
+          ? `${failing} last failed a run — see Automation.`
+          : "No automation's last run failed."
+      }
       tone={failing > 0 ? "warning" : "good"}
       href="/automation"
     />
@@ -135,7 +139,8 @@ export function DashboardScreen({
   /** null when the viewer lacks `content:view`. */
   pendingApprovals: number | null;
 }) {
-  const hasAnyCard = automations !== null || weeklyReport !== undefined || pendingApprovals !== null;
+  const hasAnyCard =
+    automations !== null || weeklyReport !== undefined || pendingApprovals !== null;
 
   return (
     <div className="max-w-4xl">

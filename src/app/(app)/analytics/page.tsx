@@ -38,8 +38,8 @@ export default async function AnalyticsPage({
     <div className="max-w-4xl">
       <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Weekly performance, computed from measured platform analytics. A number is either what
-        the platform reported or a post is left out of the comparison — never invented (§22).
+        Weekly performance, computed from measured platform analytics. A number is either what the
+        platform reported or a post is left out of the comparison — never invented (§22).
       </p>
 
       <AnalyticsScreen

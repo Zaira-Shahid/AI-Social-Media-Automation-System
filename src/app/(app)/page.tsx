@@ -26,7 +26,9 @@ export default async function HomePage() {
     role && (can(role, "analytics:view") || can(role, "strategy:view"))
       ? listRecentWeeklyReports(1).then((reports) => reports[0] ?? null)
       : Promise.resolve(undefined),
-    role && can(role, "content:view") ? countPlatformPostsByStatus("IN_REVIEW") : Promise.resolve(null),
+    role && can(role, "content:view")
+      ? countPlatformPostsByStatus("IN_REVIEW")
+      : Promise.resolve(null),
   ]);
 
   return (

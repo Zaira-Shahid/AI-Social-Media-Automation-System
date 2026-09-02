@@ -85,7 +85,10 @@ export function StrategyScreen({
           {state.status !== "idle" && state.message ? (
             <p
               role="status"
-              className={cn("text-sm", state.status === "error" ? "text-destructive" : "text-muted-foreground")}
+              className={cn(
+                "text-sm",
+                state.status === "error" ? "text-destructive" : "text-muted-foreground",
+              )}
             >
               {state.message}
             </p>
@@ -103,7 +106,10 @@ export function StrategyScreen({
           <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {[
               ["Best platform", latestWeek.bestPlatform ? labelFor(latestWeek.bestPlatform) : "—"],
-              ["Weakest platform", latestWeek.weakestPlatform ? labelFor(latestWeek.weakestPlatform) : "—"],
+              [
+                "Weakest platform",
+                latestWeek.weakestPlatform ? labelFor(latestWeek.weakestPlatform) : "—",
+              ],
               ["Best topic", latestWeek.bestTopic ?? "—"],
               ["Weak topic", latestWeek.weakTopic ?? "—"],
               ["Best format", latestWeek.bestFormat ? labelFor(latestWeek.bestFormat) : "—"],
@@ -137,7 +143,8 @@ export function StrategyScreen({
               ) : null}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Computed from {current.postsAnalyzed} measured post(s) across {current.weeksAnalyzed.length} week(s).
+              Computed from {current.postsAnalyzed} measured post(s) across{" "}
+              {current.weeksAnalyzed.length} week(s).
             </p>
 
             <div className="mt-3 grid gap-6 sm:grid-cols-3">
@@ -178,7 +185,8 @@ export function StrategyScreen({
               <li key={version.id} className="flex justify-between">
                 <span>Version {version.version}</span>
                 <span className="text-muted-foreground">
-                  {version.postsAnalyzed} post(s), {version.recommendations?.length ?? 0} recommendation(s)
+                  {version.postsAnalyzed} post(s), {version.recommendations?.length ?? 0}{" "}
+                  recommendation(s)
                 </span>
               </li>
             ))}

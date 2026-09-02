@@ -70,7 +70,8 @@ export class FacebookAnalyticsAdapter implements AnalyticsAdapter {
     return {
       platform: this.platform,
       mode: this.mode,
-      detail: "Reads likes, comments and shares for Page posts through Graph API " +
+      detail:
+        "Reads likes, comments and shares for Page posts through Graph API " +
         `${GRAPH_API_VERSION}.`,
       limitation:
         "Reach, impressions, click and engagement-rate metrics are unavailable: Meta has " +
@@ -119,7 +120,11 @@ export class FacebookAnalyticsAdapter implements AnalyticsAdapter {
         code: payload.error?.code,
       });
 
-      return { ok: false, mode: this.mode, reason: describeGraphError(payload.error, response.status) };
+      return {
+        ok: false,
+        mode: this.mode,
+        reason: describeGraphError(payload.error, response.status),
+      };
     }
 
     // Meta omits `shares` entirely on a post with zero shares, rather than

@@ -24,7 +24,11 @@ vi.mock("@/lib/slack/store", () => ({
 
 const { getAutomationStatuses } = await import("@/lib/automation/status");
 
-const DEFAULT_SETTING = { enabled: true, updatedBy: "system", updatedAt: new Date(0).toISOString() };
+const DEFAULT_SETTING = {
+  enabled: true,
+  updatedBy: "system",
+  updatedAt: new Date(0).toISOString(),
+};
 
 beforeEach(() => {
   getAutomationSetting.mockReset().mockResolvedValue(DEFAULT_SETTING);
@@ -52,7 +56,12 @@ describe("getAutomationStatuses", () => {
     listNotifications.mockImplementation((workflow: string) =>
       workflow === "03_slack_news_notification"
         ? Promise.resolve([
-            { status: "SENT", sentAt: "2026-09-01T10:00:00.000Z", detail: null, trigger: "WEBHOOK" },
+            {
+              status: "SENT",
+              sentAt: "2026-09-01T10:00:00.000Z",
+              detail: null,
+              trigger: "WEBHOOK",
+            },
           ])
         : Promise.resolve([]),
     );
@@ -61,16 +70,40 @@ describe("getAutomationStatuses", () => {
     const slack = statuses.find((s) => s.label === "Slack Notification");
 
     expect(slack?.lastRun).toMatchObject({ status: "SENT", trigger: "WEBHOOK" });
-    expect(listRecentRuns).not.toHaveBeenCalledWith("03_slack_news_notification", expect.anything());
+    expect(listRecentRuns).not.toHaveBeenCalledWith(
+      "03_slack_news_notification",
+      expect.anything(),
+    );
   });
 
   it("splits the newest run into lastRun and the rest into recentRuns", async () => {
     listRecentRuns.mockImplementation((workflow: string) =>
       workflow === "01_daily_news_discovery"
         ? Promise.resolve([
-            { workflow, status: "SUCCESS", startedAt: "t3", finishedAt: "t3", error: null, trigger: "WEBHOOK" },
-            { workflow, status: "FAILURE", startedAt: "t2", finishedAt: "t2", error: "boom", trigger: "WEBHOOK" },
-            { workflow, status: "SUCCESS", startedAt: "t1", finishedAt: "t1", error: null, trigger: "WEBHOOK" },
+            {
+              workflow,
+              status: "SUCCESS",
+              startedAt: "t3",
+              finishedAt: "t3",
+              error: null,
+              trigger: "WEBHOOK",
+            },
+            {
+              workflow,
+              status: "FAILURE",
+              startedAt: "t2",
+              finishedAt: "t2",
+              error: "boom",
+              trigger: "WEBHOOK",
+            },
+            {
+              workflow,
+              status: "SUCCESS",
+              startedAt: "t1",
+              finishedAt: "t1",
+              error: null,
+              trigger: "WEBHOOK",
+            },
           ])
         : Promise.resolve([]),
     );
@@ -85,7 +118,9 @@ describe("getAutomationStatuses", () => {
 
   it("does not blank the other rows when one workflow's read fails", async () => {
     listRecentRuns.mockImplementation((workflow: string) =>
-      workflow === "01_daily_news_discovery" ? Promise.reject(new Error("firestore down")) : Promise.resolve([]),
+      workflow === "01_daily_news_discovery"
+        ? Promise.reject(new Error("firestore down"))
+        : Promise.resolve([]),
     );
 
     const statuses = await getAutomationStatuses();
@@ -98,7 +133,9 @@ describe("getAutomationStatuses", () => {
 
   it("reflects the enabled setting per workflow", async () => {
     getAutomationSetting.mockImplementation((workflow: string) =>
-      Promise.resolve(workflow === "08_analytics_sync" ? { ...DEFAULT_SETTING, enabled: false } : DEFAULT_SETTING),
+      Promise.resolve(
+        workflow === "08_analytics_sync" ? { ...DEFAULT_SETTING, enabled: false } : DEFAULT_SETTING,
+      ),
     );
 
     const statuses = await getAutomationStatuses();

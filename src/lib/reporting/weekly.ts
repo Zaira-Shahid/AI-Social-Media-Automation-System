@@ -16,7 +16,14 @@ import {
   PERFORMANCE_NARRATIVE_SCHEMA_NAME,
   performanceNarrativeSchema,
 } from "@/lib/reporting/generation-schema";
-import { bestOf, bestPosts, compareBy, weakPosts, weakestOf, type AnalyzablePost } from "@/lib/reporting/compare";
+import {
+  bestOf,
+  bestPosts,
+  compareBy,
+  weakPosts,
+  weakestOf,
+  type AnalyzablePost,
+} from "@/lib/reporting/compare";
 import { saveWeeklyReport } from "@/lib/reporting/store";
 import type { ComparisonGroup, PerformanceNarrative, WeeklyReport } from "@/lib/reporting/schema";
 import { addDays, dateInTimeZone, startOfDayInTimeZone } from "@/lib/time";
@@ -119,12 +126,14 @@ async function narrate(
     formatGroups(report.formatComparison, "Formats"),
     "",
     "Best posts:",
-    report.bestPosts.map((post) => `${post.platform} "${post.sourceTitle}": ${post.engagement}`).join("\n") ||
-      "(none)",
+    report.bestPosts
+      .map((post) => `${post.platform} "${post.sourceTitle}": ${post.engagement}`)
+      .join("\n") || "(none)",
     "",
     "Weakest posts:",
-    report.weakPosts.map((post) => `${post.platform} "${post.sourceTitle}": ${post.engagement}`).join("\n") ||
-      "(none)",
+    report.weakPosts
+      .map((post) => `${post.platform} "${post.sourceTitle}": ${post.engagement}`)
+      .join("\n") || "(none)",
   ].join("\n");
 
   const result = await provider.complete({
@@ -237,7 +246,9 @@ async function runWeeklyAnalysisInner(now: Date): Promise<WeeklyAnalysisOutcome>
       providerPostId: post.providerPostId,
       permalink: post.permalink,
       sourceTitle: contentItem?.sourceTitle ?? "(untitled)",
-      topic: contentItem ? (topicById.get(contentItem.sourceNewsItemId) ?? "(uncategorized)") : "(uncategorized)",
+      topic: contentItem
+        ? (topicById.get(contentItem.sourceNewsItemId) ?? "(uncategorized)")
+        : "(uncategorized)",
       format: post.visual.template,
       engagement: measuredEngagement(analytics),
     });

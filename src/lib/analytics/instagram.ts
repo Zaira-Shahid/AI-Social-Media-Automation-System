@@ -74,7 +74,8 @@ export class InstagramAnalyticsAdapter implements AnalyticsAdapter {
     return {
       platform: this.platform,
       mode: this.mode,
-      detail: "Reads reach, likes, comments, shares and saves for feed media through " +
+      detail:
+        "Reads reach, likes, comments, shares and saves for feed media through " +
         `Graph API ${GRAPH_API_VERSION}.`,
       limitation:
         "Impressions and clicks are unavailable: Meta deprecated the impressions metric for " +
@@ -94,7 +95,9 @@ export class InstagramAnalyticsAdapter implements AnalyticsAdapter {
     let response: Response;
 
     try {
-      response = await fetch(`${GRAPH_BASE}/${request.providerPostId}/insights?${params.toString()}`);
+      response = await fetch(
+        `${GRAPH_BASE}/${request.providerPostId}/insights?${params.toString()}`,
+      );
     } catch (error) {
       return {
         ok: false,
@@ -122,7 +125,11 @@ export class InstagramAnalyticsAdapter implements AnalyticsAdapter {
         code: payload.error?.code,
       });
 
-      return { ok: false, mode: this.mode, reason: describeGraphError(payload.error, response.status) };
+      return {
+        ok: false,
+        mode: this.mode,
+        reason: describeGraphError(payload.error, response.status),
+      };
     }
 
     const byName = new Map<string, number>();

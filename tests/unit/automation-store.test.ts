@@ -14,7 +14,10 @@ import type { AutomationRun } from "@/lib/automation/schema";
 const add = vi.fn().mockResolvedValue({ id: "run-1" });
 const collection = vi.fn(() => ({ add }));
 const post = vi.fn().mockResolvedValue({ mode: "REAL", channel: "C1", ts: "123" });
-const getSlackTarget = vi.fn(() => ({ notifier: { name: "test", mode: "REAL", post }, channel: "C1" }));
+const getSlackTarget = vi.fn(() => ({
+  notifier: { name: "test", mode: "REAL", post },
+  channel: "C1",
+}));
 
 vi.mock("@/lib/firebase/admin", () => ({
   getAdminFirestore: () => ({ collection }),
@@ -67,7 +70,11 @@ describe("recordAutomationRun's Slack alert", () => {
 
   it("excludes Publishing, which already sends its own richer alert", async () => {
     await recordAutomationRun(
-      run({ workflow: "07_scheduled_publishing:publish", status: "FAILURE", error: "all posts failed" }),
+      run({
+        workflow: "07_scheduled_publishing:publish",
+        status: "FAILURE",
+        error: "all posts failed",
+      }),
     );
 
     expect(post).not.toHaveBeenCalled();
@@ -76,7 +83,9 @@ describe("recordAutomationRun's Slack alert", () => {
   it("never throws when Slack itself fails", async () => {
     post.mockRejectedValue(new Error("Slack is down"));
 
-    await expect(recordAutomationRun(run({ status: "FAILURE", error: "x" }))).resolves.toBeUndefined();
+    await expect(
+      recordAutomationRun(run({ status: "FAILURE", error: "x" })),
+    ).resolves.toBeUndefined();
   });
 
   it("still stores the run even though the alert path runs after the write", async () => {

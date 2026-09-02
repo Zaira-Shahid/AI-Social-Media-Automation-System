@@ -56,9 +56,13 @@ function week(overrides: Partial<StoredWeeklyReport> = {}): StoredWeeklyReport {
     timeZone: "UTC",
     postsAnalyzed: 2,
     postsExcluded: 0,
-    platformComparison: [{ key: "FACEBOOK", postsAnalyzed: 2, totalEngagement: 20, averageEngagement: 10 }],
+    platformComparison: [
+      { key: "FACEBOOK", postsAnalyzed: 2, totalEngagement: 20, averageEngagement: 10 },
+    ],
     topicComparison: [{ key: "AI", postsAnalyzed: 2, totalEngagement: 20, averageEngagement: 10 }],
-    formatComparison: [{ key: "HEADLINE_CARD", postsAnalyzed: 2, totalEngagement: 20, averageEngagement: 10 }],
+    formatComparison: [
+      { key: "HEADLINE_CARD", postsAnalyzed: 2, totalEngagement: 20, averageEngagement: 10 },
+    ],
     bestPosts: [],
     weakPosts: [],
     bestPlatform: "FACEBOOK",
@@ -74,7 +78,14 @@ function week(overrides: Partial<StoredWeeklyReport> = {}): StoredWeeklyReport {
 }
 
 function completionResult(data: unknown, mode: "REAL" | "MOCK" = "REAL") {
-  return { data, mode, provider: "test", model: "test-model", inputTokens: null, outputTokens: null };
+  return {
+    data,
+    mode,
+    provider: "test",
+    model: "test-model",
+    inputTokens: null,
+    outputTokens: null,
+  };
 }
 
 beforeEach(() => {
@@ -88,7 +99,9 @@ beforeEach(() => {
 
 describe("runStrategyOptimization", () => {
   it("skips the AI call entirely when no week has any measured posts", async () => {
-    listRecentWeeklyReports.mockResolvedValue([week({ postsAnalyzed: 0, platformComparison: [], topicComparison: [], formatComparison: [] })]);
+    listRecentWeeklyReports.mockResolvedValue([
+      week({ postsAnalyzed: 0, platformComparison: [], topicComparison: [], formatComparison: [] }),
+    ]);
 
     const outcome = await runStrategyOptimization("system:strategy", NOW);
 
@@ -127,7 +140,11 @@ describe("runStrategyOptimization", () => {
       completionResult({
         recommendations: [
           { category: "NOT_A_REAL_CATEGORY", recommendation: "x", reason: "y" },
-          { category: "TOPIC_WEIGHTING", recommendation: "Shift toward AI topics.", reason: "AI led engagement." },
+          {
+            category: "TOPIC_WEIGHTING",
+            recommendation: "Shift toward AI topics.",
+            reason: "AI led engagement.",
+          },
         ],
       }),
     );

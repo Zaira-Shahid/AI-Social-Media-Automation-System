@@ -110,7 +110,10 @@ describe("syncOne", () => {
   it("never touches credentials or the real adapter for a mock-published post", async () => {
     mockFetchMetrics.mockResolvedValue({ ok: true, mode: "MOCK", metrics: { likes: 5 } });
 
-    const outcome = await syncOne(post({ publishMode: "MOCK", providerPostId: "mock-facebook-post-1" }), NOW);
+    const outcome = await syncOne(
+      post({ publishMode: "MOCK", providerPostId: "mock-facebook-post-1" }),
+      NOW,
+    );
 
     expect(outcome.status).toBe("SYNCED");
     expect(getUsableCredentials).not.toHaveBeenCalled();
@@ -140,12 +143,18 @@ describe("syncOne", () => {
       { accountId: "acct-1", accessToken: "token" },
     );
     expect(saveAnalyticsRecord).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: "REAL", metrics: { likes: 10, comments: 2, shares: 1, engagement: 13 } }),
+      expect.objectContaining({
+        mode: "REAL",
+        metrics: { likes: 10, comments: 2, shares: 1, engagement: 13 },
+      }),
     );
   });
 
   it("records a sync failure, not a skip, when no usable credential exists", async () => {
-    getUsableCredentials.mockResolvedValue({ ok: false, reason: "No FACEBOOK account is connected." });
+    getUsableCredentials.mockResolvedValue({
+      ok: false,
+      reason: "No FACEBOOK account is connected.",
+    });
 
     const outcome = await syncOne(post(), NOW);
 

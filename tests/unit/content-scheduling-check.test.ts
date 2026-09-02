@@ -92,7 +92,9 @@ describe("runSchedulingCheck", () => {
 
     await runSchedulingCheck(NOW, "MANUAL");
 
-    expect(recordAutomationRun).toHaveBeenCalledWith(expect.objectContaining({ trigger: "MANUAL" }));
+    expect(recordAutomationRun).toHaveBeenCalledWith(
+      expect.objectContaining({ trigger: "MANUAL" }),
+    );
   });
 
   it("records a FAILURE run and rethrows when the read itself fails", async () => {
@@ -100,6 +102,8 @@ describe("runSchedulingCheck", () => {
 
     await expect(runSchedulingCheck(NOW, "WEBHOOK")).rejects.toThrow("firestore down");
 
-    expect(recordAutomationRun).toHaveBeenCalledWith(expect.objectContaining({ status: "FAILURE" }));
+    expect(recordAutomationRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "FAILURE" }),
+    );
   });
 });
