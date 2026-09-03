@@ -86,7 +86,7 @@ function WeeklyReportCard({ report }: { report: StoredWeeklyReport | null }) {
         icon={TrendingUp}
         label="This week's performance"
         value="No report yet"
-        detail="Runs automatically once a week has published posts to measure (§23)."
+        detail="Runs automatically once a week has published posts to measure."
         href="/analytics"
       />
     );
