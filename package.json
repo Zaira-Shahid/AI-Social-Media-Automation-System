@@ -78,6 +78,8 @@
   },
   "private": true,
   "overrides": {
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "jwks-rsa": "3.2.2",
+    "jose": "^4.15.9"
   }
 }
