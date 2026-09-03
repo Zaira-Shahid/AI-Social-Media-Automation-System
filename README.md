@@ -28,9 +28,6 @@ through every layer of the codebase.
 |---|---|---|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Content Review Queue](docs/screenshots/content-review.png) | ![Analytics](docs/screenshots/analytics.png) |
 
-*(Screenshots pending — drop `dashboard.png`, `content-review.png` and
-`analytics.png` into `docs/screenshots/` to populate this table.)*
-
 ## Key Features
 
 **Editorial pipeline**
