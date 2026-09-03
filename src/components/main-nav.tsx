@@ -69,7 +69,7 @@ const NAVIGATION: NavItem[] = [
     permission: "content:view",
   },
   { label: "Brand", icon: Palette, href: "/brand", permission: "brand:manage" },
-  { label: "Settings", icon: Settings },
+  { label: "Settings", icon: Settings, href: "/settings", permission: "settings:manage" },
 ];
 
 const BASE_ITEM = "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm";
