@@ -31,10 +31,10 @@ function UsersSection({ users }: { users: StoredProfile[] }) {
     <section className="rounded-lg border border-border bg-card p-5">
       <h2 className="text-sm font-medium">Users</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Every provisioned account. There is no signup route, by design (§26) — creating an
-        account, changing a role, or disabling one is a CLI-only action:{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-xs">npm run provision:user</code>.
-        This list is read-only.
+        Every provisioned account. There is no signup route by design — creating an account,
+        changing a role, or disabling one is a CLI-only action:{" "}
+        <code className="rounded bg-muted px-1 py-0.5 text-xs">npm run provision:user</code>. This
+        list is read-only.
       </p>
 
       {users.length === 0 ? (

@@ -132,7 +132,7 @@ export default async function NewsItemPage({ params }: { params: Promise<{ id: s
             className="mt-2 max-h-64 rounded-lg border border-border object-cover"
           />
           <p className="mt-1 text-xs text-muted-foreground">
-            Shown here for context only. Publisher images are never used in generated posts (§14).
+            Shown here for context only. Publisher images are never used in generated posts.
           </p>
         </div>
       ) : null}
