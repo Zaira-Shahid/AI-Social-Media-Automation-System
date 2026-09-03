@@ -27,7 +27,7 @@ export default async function AuditLogPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Audit Log</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Every recorded action — who did it, what it touched, and whether it succeeded. Never
-        secrets, never a token (§55, §56).
+        secrets, never a token.
       </p>
 
       <AuditLogScreen entries={entries} />

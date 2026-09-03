@@ -110,7 +110,7 @@ export function AnalyticsScreen({
     return (
       <p className="mt-4 text-sm text-muted-foreground">
         No weekly report has run yet. The first one runs at the end of the current week, once at
-        least one post has published (§23).
+        least one post has published.
       </p>
     );
   }
